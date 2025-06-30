@@ -1,21 +1,10 @@
 # Flynse - Personal Finance Manager
 
-![Flynse Icon](assets/icon/flynse.png)
+<p align="center">
+  <img src="assets/icon/flynse.png" alt="Flynse Icon" width="200"/>
+</p>
 
 **Flynse** is a comprehensive, locally-stored personal finance management application built with Flutter. It provides a modern, intuitive interface to help users track their income, expenses, savings, and debts, empowering them to take control of their financial lives.
-
----
-
-## 📸 Screenshots
-
-*(Add your screenshots here. It's recommended to include shots of the Dashboard, Transaction List, Debt Management, and Savings pages.)*
-
-| Dashboard | Savings Page | Debt Management |
-| :---: | :---: | :---: |
-| *Dashboard Screenshot* | *Savings Screenshot* | *Debt Screenshot* |
-
-
----
 
 ## ✨ Key Features
 
@@ -108,7 +97,37 @@ To get a local copy up and running, follow these simple steps.
 
 The project is structured following clean architecture principles to ensure scalability and maintainability.
 
-lib├── core│   ├── data                # Database helper, repositories, services│   ├── providers           # State management (Provider)│   └── routing             # AppRouter for navigation├── features                # Contains all the app features (e.g., dashboard, debt, savings)│   ├── analytics│   ├── dashboard│   ├── debt│   │   ├── data│   │   ├── ui│   │   └── ...│   └── ...├── shared                  # Shared widgets, constants, themes, utils│   ├── constants│   ├── theme│   └── utils├── ui                      # Main UI pages (e.g., home_page, splash_screen)└── main.dart               # App entry point
+lib
+├── core
+│   ├── data
+│   │   ├── repositories
+│   │   ├── backup_service.dart
+│   │   └── database_helper.dart
+│   ├── providers
+│   └── routing
+├── features
+│   ├── analytics
+│   ├── dashboard
+│   │   └── widgets
+│   ├── debt
+│   │   ├── data
+│   │   │   ├── models
+│   │   │   └── services
+│   │   └── ui
+│   │       ├── pages
+│   │       └── widgets
+│   ├── savings
+│   │   └── widgets
+│   ├── security
+│   ├── settings
+│   └── transaction
+│       └── widgets
+├── shared
+│   ├── constants
+│   ├── theme
+│   └── utils
+├── ui
+└── main.dart
 ---
 
 ## 🤝 Contributing
