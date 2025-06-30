@@ -1,0 +1,48 @@
+name: flynse
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dropdown_search: ^5.0.6
+  file_picker: ^10.2.0
+  google_fonts: ^6.2.1
+  image_picker: ^1.1.2
+  intl: ^0.20.2
+  path: ^1.9.0 # Added path dependency
+  permission_handler: ^12.0.0+1
+  provider: ^6.1.2
+  shared_preferences: ^2.2.3
+  sqflite: ^2.3.3
+  sqflite_common_ffi_web: ^1.0.0
+  uuid: ^4.4.0
+  fl_chart: ^0.68.0
+  timezone: ^0.10.1
+  smooth_page_indicator: ^1.2.1
+  confetti: ^0.8.0
+  local_auth: ^2.3.0
+  flutter_colorpicker: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/flynse.png
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/flynse.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
