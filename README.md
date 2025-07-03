@@ -79,6 +79,34 @@
             background-color: #1c1c1e;
             color: #adb5bd;
         }
+        .screenshot-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        .screenshot-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease;
+        }
+        .dark .screenshot-card {
+             background-color: #1f2937;
+        }
+        .screenshot-card:hover {
+            transform: translateY(-5px);
+        }
+        .screenshot-card img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+        }
+        .screenshot-card-title {
+            padding: 1rem;
+            font-weight: 600;
+            text-align: center;
+        }
     </style>
 </head>
 <body class="dark:bg-gray-900 dark:text-gray-100">
@@ -93,6 +121,34 @@
         <p class="text-lg text-center text-gray-600 dark:text-gray-300 mb-12">
             <strong>Flynse</strong> is a comprehensive, locally-stored personal finance management application built with Flutter. It provides a modern, intuitive interface to help users track their income, expenses, savings, and debts, empowering them to take control of their financial lives.
         </p>
+
+        <!-- Screenshots Section -->
+        <h2>📸 Screenshots</h2>
+        <div class="screenshot-gallery">
+            <div class="screenshot-card">
+                <img src="https://placehold.co/600x1200/007AFF/FFFFFF?text=Dashboard" alt="Dashboard Screenshot">
+                <div class="screenshot-card-title dark:text-gray-200">Dashboard</div>
+            </div>
+            <div class="screenshot-card">
+                <img src="https://placehold.co/600x1200/FF6B6B/FFFFFF?text=Debt+Management" alt="Debt Management Screenshot">
+                <div class="screenshot-card-title dark:text-gray-200">Debt Management</div>
+            </div>
+            <div class="screenshot-card">
+                <img src="https://placehold.co/600x1200/34C759/FFFFFF?text=Analytics" alt="Analytics Screenshot">
+                <div class="screenshot-card-title dark:text-gray-200">Financial Analytics</div>
+            </div>
+             <div class="screenshot-card">
+                <img src="https://placehold.co/600x1200/5856D6/FFFFFF?text=Add+Transaction" alt="Add Transaction Screenshot">
+                <div class="screenshot-card-title dark:text-gray-200">Add Transaction</div>
+            </div>
+        </div>
+         <div class="text-center my-8">
+            <div class="screenshot-card inline-block">
+                 <img src="https://placehold.co/800x450/121212/FFFFFF?text=App+Demo+GIF" alt="App Demo GIF">
+                 <div class="screenshot-card-title dark:text-gray-200">App Demo</div>
+            </div>
+        </div>
+
 
         <!-- Key Features Section -->
         <h2>✨ Key Features</h2>
@@ -155,7 +211,7 @@
 
         <!-- Tech Stack Section -->
         <h2>🛠️ Tech Stack & Packages</h2>
-        <div class="flex flex-wrap">
+        <div class="flex flex-wrap justify-center">
             <span class="tag">Flutter</span>
             <span class="tag">Provider</span>
             <span class="tag">sqflite</span>
