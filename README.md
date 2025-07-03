@@ -1,9 +1,17 @@
-Flynse
 <p align="center">
-<img src="https://raw.githubusercontent.com/hemuush/flynse/main/assets/icon/flynse.png" alt="Flynse Icon" width="200"/>
+<img src="https://raw.githubusercontent.com/hemuush/flynse/main/assets/icon/flynse.png" alt="Flynse Icon" width="150"/>
 </p>
+
+<h1 align="center">Flynse</h1>
+
 <p align="center">
-<strong>Your Modern Personal Finance Manager</strong>
+<strong>Your Modern, Local-First Personal Finance Manager</strong>
+</p>
+
+<p align="center">
+<a href="https://github.com/hemuush/flynse/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+<img src="https://img.shields.io/badge/Flutter-3.x-blue.svg" alt="Flutter">
+<img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-green.svg" alt="Platform">
 </p>
 
 <p align="center">
@@ -11,21 +19,20 @@ Flynse
 </p>
 
 📸 Screenshots
-Dashboard
-
-Debt Management
-
-<img src="https://placehold.co/600x1200/007AFF/FFFFFF?text=Dashboard" alt="Dashboard Screenshot" width="250"/>
-
-<img src="https://placehold.co/600x1200/FF6B6B/FFFFFF?text=Debt+Management" alt="Debt Management Screenshot" width="250"/>
-
-Financial Analytics
-
-Add Transaction
-
-<img src="https://placehold.co/600x1200/34C759/FFFFFF?text=Analytics" alt="Analytics Screenshot" width="250"/>
-
-<img src="https://placehold.co/600x1200/5856D6/FFFFFF?text=Add+Transaction" alt="Add Transaction Screenshot" width="250"/>
+<table>
+<tr>
+<td align="center"><strong>Dashboard</strong></td>
+<td align="center"><strong>Debt Management</strong></td>
+<td align="center"><strong>Financial Analytics</strong></td>
+<td align="center"><strong>Add Transaction</strong></td>
+</tr>
+<tr>
+<td><img src="https://placehold.co/400x800/f0f2f5/007AFF?text=Dashboard" alt="Dashboard Screenshot" width="200"/></td>
+<td><img src="https://placehold.co/400x800/f0f2f5/FF6B6B?text=Debt+Management" alt="Debt Management Screenshot" width="200"/></td>
+<td><img src="https://placehold.co/400x800/f0f2f5/34C759?text=Analytics" alt="Analytics Screenshot" width="200"/></td>
+<td><img src="https://placehold.co/400x800/f0f2f5/5856D6?text=Add+Transaction" alt="Add Transaction Screenshot" width="200"/></td>
+</tr>
+</table>
 
 <p align="center">
 <strong>App Demo</strong><br>
@@ -52,8 +59,6 @@ Add Transaction
 🔒 Security & Data Privacy: All data is stored locally on your device. Secure the app with a PIN lock and biometric authentication (Fingerprint/Face ID). Backup your data to a local folder and Restore it anytime. Set up automatic backups (Daily, Weekly, Monthly) for peace of mind.
 
 🛠️ Tech Stack & Packages
-Flutter Provider sqflite fl_chart google_fonts intl image_picker file_picker permission_handler local_auth flutter_colorpicker smooth_page_indicator uuid
-
 🚀 Getting Started
 Prerequisites
 You must have Flutter installed on your machine. For instructions, see the official Flutter documentation.
