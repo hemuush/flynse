@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flynse/core/data/repositories/settings_repository.dart';
 import 'package:flynse/core/providers/analytics_provider.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
@@ -10,6 +11,7 @@ import 'package:flynse/core/routing/app_router.dart';
 import 'package:flynse/features/dashboard/dashboard_page.dart';
 import 'package:flynse/features/dashboard/widgets/yearly_details_sheet.dart';
 import 'package:flynse/features/debt/debt.dart';
+import 'package:flynse/features/security/pin_lock_page.dart';
 import 'package:flynse/features/savings/savings_page.dart';
 import 'package:flynse/features/transaction/transaction_list_page.dart';
 import 'package:flynse/features/transaction/widgets/transaction_form_models.dart';
@@ -22,34 +24,90 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  // The selected index for the BottomNavigationBar.
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  // The actual page index, which skips the central action button.
   int get _pageIndex => _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex;
 
-  // --- MODIFICATION: Variable to track the last back button press ---
   DateTime? _lastPressedAt;
+
+  // --- FIX: Add a flag to track the lock state ---
+  bool _isLocked = true;
 
   @override
   void initState() {
     super.initState();
-    // Set navigation callback first
+    WidgetsBinding.instance.addObserver(this);
+
     context.read<AppProvider>().setNavigateToTab((int index) {
       if (mounted) {
-        // The AppProvider works with 0-3 for pages, so we map it back
-        // to the BottomNavigationBar index.
         _onItemTapped(index > 1 ? index + 1 : index);
       }
     });
 
-    // Run backup check after frame is built to avoid blocking startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SettingsProvider>().checkAndPerformAutoBackup();
+      // --- FIX: Trigger the initial lock check ---
+      _checkPinAndLock();
     });
   }
 
-  // A list of the main pages accessible from the bottom navigation bar.
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // --- FIX: The core logic change is in this method ---
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      // When the app goes to the background, mark it as locked.
+      if (mounted) {
+        setState(() {
+          _isLocked = true;
+        });
+      }
+    }
+    if (state == AppLifecycleState.resumed && _isLocked) {
+      // When it resumes, if it's marked as locked, show the PIN screen.
+      _checkPinAndLock();
+    }
+  }
+
+  // --- FIX: Extracted the PIN check logic into its own method ---
+  Future<void> _checkPinAndLock() async {
+    final settingsRepo = SettingsRepository();
+    final pinExists = await settingsRepo.getPin() != null;
+
+    if (pinExists && mounted) {
+      // The app is locked and has a PIN
+      Navigator.of(context).pushNamed(
+        AppRouter.pinLockPage,
+        arguments: PinLockPageArgs(
+          mode: PinLockMode.enter,
+          // On correct PIN, pop the lock screen AND update the state
+          onPinCorrect: () {
+            if (mounted) {
+              setState(() {
+                _isLocked = false;
+              });
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      );
+    } else {
+      // The app is not locked because no PIN is set
+      if (mounted) {
+        setState(() {
+          _isLocked = false;
+        });
+      }
+    }
+  }
+
+
   final List<Widget> _mainPages = [
     const DashboardPage(),
     const SavingsPage(),
@@ -57,7 +115,6 @@ class _MyHomePageState extends State<MyHomePage> {
     const TransactionListPage(),
   ];
 
-  // Titles corresponding to each page.
   static const List<String> _pageTitles = [
     'Overview',
     'Savings',
@@ -65,10 +122,8 @@ class _MyHomePageState extends State<MyHomePage> {
     'History',
   ];
 
-  // Handles tap events on the bottom navigation bar items.
   void _onItemTapped(int index) {
     HapticFeedback.lightImpact();
-    // If the center button (index 2) is tapped, trigger the FAB action.
     if (index == 2) {
       _onFabPressed();
       return;
@@ -80,16 +135,13 @@ class _MyHomePageState extends State<MyHomePage> {
     context.read<AppProvider>().setShowFab(true);
   }
 
-  // Navigates to the settings page.
   void _navigateToSettings() {
     HapticFeedback.lightImpact();
     Navigator.of(context).pushNamed(AppRouter.settingsPage).then((_) {
-      // Refresh state after returning from settings
       setState(() {});
     });
   }
 
-  // Determines the action for the central button based on the current tab.
   void _onFabPressed() {
     HapticFeedback.mediumImpact();
     String routeName;
@@ -99,22 +151,20 @@ class _MyHomePageState extends State<MyHomePage> {
     final pageIndexForAction = _pageIndex;
 
     switch (pageIndexForAction) {
-      case 0: // Overview
-      case 3: // History
+      case 0:
+      case 3:
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs();
         break;
-      case 1: // Savings
+      case 1:
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs(isSaving: true);
         break;
-      case 2: // Debts
+      case 2:
         if (debtProvider.debtViewIndex == 0) {
-          // "Your Debts" tab -> Add a loan the user took.
           routeName = AppRouter.addDebtPage;
           arguments = null;
         } else {
-          // "Owed to You" tab -> Add a loan to a friend.
           routeName = AppRouter.addEditTransactionPage;
           arguments = AddEditTransactionPageArgs(isLoanToFriend: true);
         }
@@ -132,7 +182,6 @@ class _MyHomePageState extends State<MyHomePage> {
     final isDarkMode = theme.brightness == Brightness.dark;
     final settingsProvider = context.watch<SettingsProvider>();
 
-    // Helper to get the correct start color for the gradient based on the selected page
     Color getStartColor() {
       if (_pageIndex == 0) {
         if (isDarkMode) {
@@ -159,18 +208,15 @@ class _MyHomePageState extends State<MyHomePage> {
       titleText = _pageTitles[_pageIndex];
     }
 
-    // --- MODIFICATION: Wrapped AnimatedContainer with PopScope ---
     return PopScope(
       canPop: false,
       onPopInvoked: (bool didPop) async {
         if (didPop) return;
 
         final navigator = Navigator.of(context);
-        // If we are not on the dashboard page, navigate back to it.
         if (_pageIndex != 0) {
           _onItemTapped(0);
         } else {
-          // If we are on the dashboard, handle the double-press to exit.
           final now = DateTime.now();
           if (_lastPressedAt == null ||
               now.difference(_lastPressedAt!) > const Duration(seconds: 2)) {
@@ -182,7 +228,6 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             );
           } else {
-            // If pressed again within 2 seconds, exit the app.
             if (navigator.canPop()) {
               navigator.pop();
             } else {
@@ -267,7 +312,7 @@ class _MyHomePageState extends State<MyHomePage> {
             children: _mainPages,
           ),
           bottomNavigationBar: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: BackdropFilter(
@@ -300,7 +345,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           color: theme.colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         child:
                             Icon(Icons.add, color: theme.colorScheme.onPrimary),
                       ),

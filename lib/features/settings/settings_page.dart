@@ -157,28 +157,29 @@ class _SettingsPageState extends State<SettingsPage>
 
     var status = await Permission.manageExternalStorage.request();
 
+    // --- FIX: Added mounted check ---
+    if (!mounted) return false;
+
     if (status.isPermanentlyDenied) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Permission Required'),
-            content: const Text(
-                'Flynse needs storage access to create backups. Please grant this permission in your phone settings.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel')),
-              ElevatedButton(
-                  onPressed: () {
-                    openAppSettings();
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Open Settings')),
-            ],
-          ),
-        );
-      }
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Permission Required'),
+          content: const Text(
+              'Flynse needs storage access to create backups. Please grant this permission in your phone settings.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel')),
+            ElevatedButton(
+                onPressed: () {
+                  openAppSettings();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Open Settings')),
+          ],
+        ),
+      );
       return false;
     }
 
@@ -188,6 +189,7 @@ class _SettingsPageState extends State<SettingsPage>
       if (directoryPath != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('backup_location', directoryPath);
+        // --- FIX: Added mounted check ---
         if (mounted) {
           setState(() {
             _backupPath = directoryPath;
@@ -283,7 +285,8 @@ class _SettingsPageState extends State<SettingsPage>
       return;
     }
 
-    final provider = context.read<AppProvider>();
+    // --- FIX: Store BuildContext in a local variable before await ---
+    final context = this.context;
     final navigator = Navigator.of(context);
 
     final confirmed = await showDialog<bool>(
@@ -317,9 +320,9 @@ class _SettingsPageState extends State<SettingsPage>
         await dbHelper.closeDatabase();
         await backupFile.copy(dbPath);
 
-        await provider.refreshAllData();
-
-        if (navigator.mounted) {
+        // --- FIX: Use the local context variable and check if mounted ---
+        if (context.mounted) {
+          await context.read<AppProvider>().refreshAllData();
           _showSnackBar('Restore successful!');
           navigator.pop();
         }
@@ -412,44 +415,46 @@ class _SettingsPageState extends State<SettingsPage>
       },
     );
 
-    if (period != null) {
-      final year = period['year']!;
-      final month = period['month']!;
-      final monthName = monthNames[month - 1];
+    if (period == null) return;
 
-      final confirmed = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                    title: const Text('Are you absolutely sure?'),
-                    content: Text(
-                        'This will permanently delete all transactions for $monthName $year. This includes income, expenses, and savings entries.'),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel')),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: TextButton.styleFrom(
-                            foregroundColor:
-                                Theme.of(context).colorScheme.error),
-                        child: const Text('I Understand, Delete'),
-                      ),
-                    ],
-                  )) ??
-          false;
+    // --- FIX: Added mounted check ---
+    if (!mounted) return;
 
-      if (confirmed) {
-        setState(() => _isDeletingData = true);
-        try {
-          await context.read<SettingsProvider>().deleteMonthlyData(year, month);
-          await context.read<AppProvider>().refreshAllData();
-          _showSnackBar('Data for $monthName $year has been deleted.');
-        } catch (e) {
-          _showSnackBar('An error occurred: $e', isError: true);
-        } finally {
-          if (mounted) {
-            setState(() => _isDeletingData = false);
-          }
+    final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+                  title: const Text('Are you absolutely sure?'),
+                  content: Text(
+                      'This will permanently delete all transactions for ${monthNames[period['month']! - 1]} ${period['year']!}. This includes income, expenses, and savings entries.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.error),
+                      child: const Text('I Understand, Delete'),
+                    ),
+                  ],
+                )) ??
+        false;
+
+    if (confirmed) {
+      setState(() => _isDeletingData = true);
+      try {
+        // --- FIX: Added mounted check ---
+        if (!mounted) return;
+        await context.read<SettingsProvider>().deleteMonthlyData(period['year']!, period['month']!);
+        if (!mounted) return;
+        await context.read<AppProvider>().refreshAllData();
+        _showSnackBar('Data for ${monthNames[period['month']! - 1]} ${period['year']!} has been deleted.');
+      } catch (e) {
+        _showSnackBar('An error occurred: $e', isError: true);
+      } finally {
+        if (mounted) {
+          setState(() => _isDeletingData = false);
         }
       }
     }
@@ -479,6 +484,8 @@ class _SettingsPageState extends State<SettingsPage>
     if (confirmed) {
       setState(() => _isDeletingData = true);
       try {
+        // --- FIX: Added mounted check ---
+        if (!mounted) return;
         await context.read<SettingsProvider>().clearAllData(context);
         // No need for snackbar or state change, as we are navigating away.
       } catch (e) {

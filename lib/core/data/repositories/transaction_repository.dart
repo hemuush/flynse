@@ -19,6 +19,9 @@ class TransactionRepository {
     final db = await _database;
     await db.transaction((txn) async {
       for (var row in rows) {
+        // The logic to automatically create/update debts for friend transactions
+        // is complex and better handled in the DebtRepository to keep concerns separate.
+        // For now, we assume the logic here is intended.
         if (row['category'] == 'Friends' && row['friend_id'] != null) {
           await _handleFriendTransaction(txn, row);
         } else {
@@ -36,61 +39,95 @@ class TransactionRepository {
         .update('transactions', row, where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Deletes a transaction and handles related data integrity.
+  /// Deletes a transaction and handles all related data integrity updates.
+  /// This method is refactored for clarity and correctness.
   Future<int> deleteTransaction(int id) async {
-    Database db = await _database;
+    final db = await _database;
     return await db.transaction((txn) async {
-      final List<Map<String, dynamic>> transactions =
+      // Step 1: Get the transaction details BEFORE deleting it.
+      final transactions =
           await txn.query('transactions', where: 'id = ?', whereArgs: [id]);
 
       if (transactions.isEmpty) {
-        return 0;
+        return 0; // Transaction doesn't exist.
       }
-
       final transaction = transactions.first;
-      final double amount = transaction['amount'] as double;
-      final int? debtId = transaction['debt_id'] as int?;
-      final String? pairId = transaction['pair_id'] as String?;
-      final String type = transaction['type'] as String;
-      final String category = transaction['category'] as String;
 
-      // If it's a paired transaction (like using savings), delete both sides.
+      // Step 2: Handle special cases based on transaction properties.
+
+      // Case A: Paired Transaction (e.g., "Use Savings")
+      // These have a `pair_id` and both sides must be deleted together.
+      final String? pairId = transaction['pair_id'] as String?;
       if (pairId != null) {
         return await txn
             .delete('transactions', where: 'pair_id = ?', whereArgs: [pairId]);
       }
 
-      // If deleting the initial "loan you took" transaction, delete the entire debt record.
-      if (debtId != null && (type == 'Income' && category == 'Loan')) {
-        await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
-        await txn
-            .delete('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
-        return 1;
-      }
-      
-      // If deleting the initial "loan to a friend" transaction, delete the entire debt record.
-      if (debtId != null && (type == 'Expense' && category == 'Friends')) {
-        await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
-         await txn
-            .delete('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
-        return 1;
+      // Case B: Debt-Related Transaction
+      // These have a `debt_id` and require updating the corresponding debt record.
+      final int? debtId = transaction['debt_id'] as int?;
+      if (debtId != null) {
+        await _handleDebtReversalOnDelete(txn, transaction);
       }
 
-      // If deleting a repayment, adjust the amount paid on the debt.
-      if (debtId != null &&
-          (category == 'Debt Repayment' || category == 'Friend Repayment')) {
-        await txn.rawUpdate('''
-          UPDATE debts
-          SET amount_paid = amount_paid - ?,
-              is_closed = 0
-          WHERE id = ?
-        ''', [amount, debtId]);
-      }
-
-      return await txn
-          .delete('transactions', where: 'id = ?', whereArgs: [id]);
+      // Step 3: Delete the original transaction record.
+      return await txn.delete('transactions', where: 'id = ?', whereArgs: [id]);
     });
   }
+
+  /// Private helper to manage all debt-related reversals when a transaction is deleted.
+  /// This keeps the main `deleteTransaction` method clean.
+  Future<void> _handleDebtReversalOnDelete(
+      Transaction txn, Map<String, dynamic> transaction) async {
+    final double amount = transaction['amount'] as double;
+    final int debtId = transaction['debt_id'] as int;
+    final String type = transaction['type'] as String;
+    final String category = transaction['category'] as String;
+
+    // Scenario 1: The transaction was the CREATION of a formal loan.
+    // Deleting it should remove the entire loan and all its associated repayments.
+    if (type == 'Income' && category == 'Loan') {
+      await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
+      await txn.delete('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
+      return;
+    }
+    
+    // Scenario 2: The transaction was a formal REPAYMENT on a debt.
+    // Deleting it should subtract the amount from `amount_paid` and reopen the debt.
+    if (category == 'Debt Repayment' || category == 'Friend Repayment') {
+      await txn.rawUpdate('''
+        UPDATE debts
+        SET amount_paid = amount_paid - ?,
+            is_closed = 0
+        WHERE id = ?
+      ''', [amount, debtId]);
+      return;
+    }
+    
+    // Scenario 3 (THE FIX): The transaction was a simple "Friends" entry that
+    // automatically created or updated a debt. Deleting it should reverse this change.
+    if (category == 'Friends') {
+      // This transaction either created or increased a debt. We reverse it by subtracting the amount.
+      await txn.rawUpdate('''
+        UPDATE debts
+        SET total_amount = total_amount - ?,
+            principal_amount = principal_amount - ?
+        WHERE id = ?
+      ''', [amount, amount, debtId]);
+
+      // After reversal, check if the debt is now empty and should be deleted.
+      final updatedDebtList = await txn.query('debts', where: 'id = ?', whereArgs: [debtId]);
+      if (updatedDebtList.isNotEmpty) {
+        final updatedDebt = updatedDebtList.first;
+        // Use a small tolerance for floating-point inaccuracies.
+        if ((updatedDebt['total_amount'] as double) <= 0.01) {
+          await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
+        }
+      }
+      return;
+    }
+  }
+
 
   /// Retrieves a list of transactions based on various filters.
   Future<List<Map<String, dynamic>>> getFilteredTransactions({
@@ -178,7 +215,7 @@ class TransactionRepository {
 
       for (var transaction in transactionsToDelete) {
         final id = transaction['id'] as int;
-        if (idsToDelete.contains(id)) continue; 
+        if (idsToDelete.contains(id)) continue;
 
         final double amount = transaction['amount'] as double;
         final int? debtId = transaction['debt_id'] as int?;
@@ -188,60 +225,68 @@ class TransactionRepository {
 
         // Case 1: Handle paired transactions (e.g., Use Savings)
         if (pairId != null) {
-            final pairedTransactions = await txn.query('transactions', where: 'pair_id = ?', whereArgs: [pairId]);
-            for (var pairedTx in pairedTransactions) {
-                idsToDelete.add(pairedTx['id'] as int);
-            }
-        // Case 2: Handle transactions linked to a debt
+          final pairedTransactions = await txn
+              .query('transactions', where: 'pair_id = ?', whereArgs: [pairId]);
+          for (var pairedTx in pairedTransactions) {
+            idsToDelete.add(pairedTx['id'] as int);
+          }
+          // Case 2: Handle transactions linked to a debt
         } else if (debtId != null) {
-            final debtResults = await txn.query('debts', where: 'id = ?', whereArgs: [debtId]);
-            if (debtResults.isEmpty) { 
-                idsToDelete.add(id); 
-                continue; 
+          final debtResults =
+              await txn.query('debts', where: 'id = ?', whereArgs: [debtId]);
+          if (debtResults.isEmpty) {
+            idsToDelete.add(id);
+            continue;
+          }
+          final debt = debtResults.first;
+          final isUserDebtor = debt['is_user_debtor'] == 1;
+          final creationDate =
+              DateTime.parse(debt['creation_date'] as String);
+
+          final isCreationTransaction = ((type == 'Income' &&
+                      category == 'Loan' &&
+                      isUserDebtor) ||
+                  (type == 'Expense' &&
+                      category == 'Friends' &&
+                      !isUserDebtor)) &&
+              (creationDate.year == year && creationDate.month == month);
+
+          // Subcase 2.1: This transaction created the debt in the deleted month
+          if (isCreationTransaction) {
+            final relatedTransactions = await txn
+                .query('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
+            for (var relatedTx in relatedTransactions) {
+              idsToDelete.add(relatedTx['id'] as int);
             }
-            final debt = debtResults.first;
-            final isUserDebtor = debt['is_user_debtor'] == 1;
-            final creationDate = DateTime.parse(debt['creation_date'] as String);
-
-            final isCreationTransaction = (
-              (type == 'Income' && category == 'Loan' && isUserDebtor) ||
-              (type == 'Expense' && category == 'Friends' && !isUserDebtor)
-            ) && (creationDate.year == year && creationDate.month == month);
-
-            // Subcase 2.1: This transaction created the debt in the deleted month
-            if (isCreationTransaction) {
-                final relatedTransactions = await txn.query('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
-                for (var relatedTx in relatedTransactions) {
-                    idsToDelete.add(relatedTx['id'] as int);
-                }
-                await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
+            await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
 
             // Subcase 2.2: This is a repayment on an existing debt
-            } else if (category == 'Debt Repayment' || category == 'Friend Repayment') {
-                await txn.rawUpdate('''
+          } else if (category == 'Debt Repayment' ||
+              category == 'Friend Repayment') {
+            await txn.rawUpdate('''
                     UPDATE debts
                     SET amount_paid = amount_paid - ?,
                         is_closed = 0
                     WHERE id = ?
                 ''', [amount, debtId]);
-                idsToDelete.add(id);
-            // Subcase 2.3: Any other linked transaction (should be rare, but handle defensively)
-            } else {
-                 idsToDelete.add(id);
-            }
-        // Case 3: Handle standard, unlinked transactions
-        } else {
             idsToDelete.add(id);
+            // Subcase 2.3: Any other linked transaction (should be rare, but handle defensively)
+          } else {
+            idsToDelete.add(id);
+          }
+          // Case 3: Handle standard, unlinked transactions
+        } else {
+          idsToDelete.add(id);
         }
       }
 
       // Finally, perform a single bulk deletion
       if (idsToDelete.isNotEmpty) {
-          await txn.delete(
-              'transactions',
-              where: 'id IN (${List.filled(idsToDelete.length, '?').join(',')})',
-              whereArgs: idsToDelete.toList(),
-          );
+        await txn.delete(
+          'transactions',
+          where: 'id IN (${List.filled(idsToDelete.length, '?').join(',')})',
+          whereArgs: idsToDelete.toList(),
+        );
       }
     });
   }
@@ -258,9 +303,9 @@ class TransactionRepository {
     final transactionAmount = transactionData['amount'] as double;
     final isExpense = transactionData['type'] == 'Expense';
     final isIncome = transactionData['type'] == 'Income';
-    final friendName = (await txn
-            .query('friends', where: 'id = ?', whereArgs: [friendId]))
-        .first['name'] as String;
+    final friendName =
+        (await txn.query('friends', where: 'id = ?', whereArgs: [friendId]))
+            .first['name'] as String;
 
     int? finalDebtId;
 
@@ -279,8 +324,8 @@ class TransactionRepository {
 
         if (transactionAmount >= remainingAmount) {
           // If this payment clears the debt
-          await txn.update('debts',
-              {'amount_paid': debt['total_amount'], 'is_closed': 1},
+          await txn.update(
+              'debts', {'amount_paid': debt['total_amount'], 'is_closed': 1},
               where: 'id = ?', whereArgs: [debtId]);
 
           final overpayment = transactionAmount - remainingAmount;
@@ -299,8 +344,8 @@ class TransactionRepository {
           }
         } else {
           // Partial repayment
-          await txn.update(
-              'debts', {'amount_paid': (debt['amount_paid'] as double) + transactionAmount},
+          await txn.update('debts',
+              {'amount_paid': (debt['amount_paid'] as double) + transactionAmount},
               where: 'id = ?', whereArgs: [debtId]);
           finalDebtId = debtId;
         }
@@ -313,8 +358,10 @@ class TransactionRepository {
           // Aggregate with existing loan
           final loan = existingLoansToFriend.first;
           final loanId = loan['id'] as int;
-          final newPrincipal = (loan['principal_amount'] as double) + transactionAmount;
-          await txn.update('debts', {'total_amount': newPrincipal, 'principal_amount': newPrincipal},
+          final newPrincipal =
+              (loan['principal_amount'] as double) + transactionAmount;
+          await txn.update(
+              'debts', {'total_amount': newPrincipal, 'principal_amount': newPrincipal},
               where: 'id = ?', whereArgs: [loanId]);
           finalDebtId = loanId;
         } else {
@@ -365,8 +412,8 @@ class TransactionRepository {
           }
         } else {
           // Partial repayment from them
-          await txn.update(
-              'debts', {'amount_paid': (loan['amount_paid'] as double) + transactionAmount},
+          await txn.update('debts',
+              {'amount_paid': (loan['amount_paid'] as double) + transactionAmount},
               where: 'id = ?', whereArgs: [loanId]);
           finalDebtId = loanId;
         }
@@ -379,8 +426,10 @@ class TransactionRepository {
           // Aggregate with existing debt
           final debt = existingDebtsToFriend.first;
           final debtId = debt['id'] as int;
-          final newPrincipal = (debt['principal_amount'] as double) + transactionAmount;
-          await txn.update('debts', {'total_amount': newPrincipal, 'principal_amount': newPrincipal},
+          final newPrincipal =
+              (debt['principal_amount'] as double) + transactionAmount;
+          await txn.update(
+              'debts', {'total_amount': newPrincipal, 'principal_amount': newPrincipal},
               where: 'id = ?', whereArgs: [debtId]);
           finalDebtId = debtId;
         } else {

@@ -29,12 +29,7 @@ class DashboardProvider with ChangeNotifier {
   Map<String, dynamic>? _lowestExpense;
   Map<String, dynamic>? get lowestExpense => _lowestExpense;
 
-  double _lastMonthExpenseTotal = 0.0;
-  double get lastMonthExpenseTotal => _lastMonthExpenseTotal;
-  
-  double _lastMonthLowestExpenseAmount = 0.0;
-  double get lastMonthLowestExpenseAmount => _lastMonthLowestExpenseAmount;
-
+  // --- REMOVED: Unnecessary properties for previous month's data ---
 
   Future<void> loadDashboardData(int year, int month) async {
     _isLoading = true;
@@ -68,22 +63,15 @@ class DashboardProvider with ChangeNotifier {
     );
   }
 
+  // --- REFACTORED: Simplified to only fetch current month's data ---
   Future<void> _fetchHighlightsData(int year, int month) async {
+    // Fetch current month's highest and lowest expenses.
+    // The full transaction record is fetched, which includes category/sub_category.
     _highestExpense = await _analyticsRepo.getExtremeTransaction(
         'Expense', year, month,
         highest: true);
     _lowestExpense = await _analyticsRepo.getExtremeTransaction(
         'Expense', year, month,
         highest: false);
-
-    final lastMonthDate = DateTime(year, month - 1, 1);
-    final lastMonthTotals = await _analyticsRepo.getTotalsForPeriod(
-        lastMonthDate.year, lastMonthDate.month);
-    _lastMonthExpenseTotal = lastMonthTotals['Expense'] ?? 0.0;
-
-    final lastMonthLowestExpenseData =
-        await _analyticsRepo.getExtremeTransaction('Expense', lastMonthDate.year, lastMonthDate.month, highest: false);
-    _lastMonthLowestExpenseAmount = lastMonthLowestExpenseData?['amount'] ?? 0.0;
-
   }
 }
