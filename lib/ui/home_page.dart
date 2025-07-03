@@ -18,7 +18,9 @@ import 'package:flynse/features/transaction/widgets/transaction_form_models.dart
 import 'package:provider/provider.dart';
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  final bool isFirstLaunch; // MODIFIED: Add this parameter
+
+  const MyHomePage({super.key, this.isFirstLaunch = false}); // MODIFIED: Update constructor
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -30,7 +32,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   DateTime? _lastPressedAt;
 
-  // --- FIX: Add a flag to track the lock state ---
   bool _isLocked = true;
 
   @override
@@ -46,8 +47,15 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SettingsProvider>().checkAndPerformAutoBackup();
-      // --- FIX: Trigger the initial lock check ---
-      _checkPinAndLock();
+      // --- FIX: Trigger the initial lock check ONLY if it's not the first launch ---
+      if (!widget.isFirstLaunch) { // MODIFIED: Use the new parameter here
+        _checkPinAndLock();
+      } else {
+        // If it is the first launch, just unlock the app
+        setState(() {
+          _isLocked = false;
+        });
+      }
     });
   }
 
@@ -57,12 +65,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // --- FIX: The core logic change is in this method ---
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
-      // When the app goes to the background, mark it as locked.
       if (mounted) {
         setState(() {
           _isLocked = true;
@@ -70,23 +76,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       }
     }
     if (state == AppLifecycleState.resumed && _isLocked) {
-      // When it resumes, if it's marked as locked, show the PIN screen.
       _checkPinAndLock();
     }
   }
 
-  // --- FIX: Extracted the PIN check logic into its own method ---
   Future<void> _checkPinAndLock() async {
     final settingsRepo = SettingsRepository();
     final pinExists = await settingsRepo.getPin() != null;
 
     if (pinExists && mounted) {
-      // The app is locked and has a PIN
       Navigator.of(context).pushNamed(
         AppRouter.pinLockPage,
         arguments: PinLockPageArgs(
           mode: PinLockMode.enter,
-          // On correct PIN, pop the lock screen AND update the state
           onPinCorrect: () {
             if (mounted) {
               setState(() {
@@ -98,7 +100,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         ),
       );
     } else {
-      // The app is not locked because no PIN is set
       if (mounted) {
         setState(() {
           _isLocked = false;

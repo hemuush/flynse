@@ -45,6 +45,7 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
   String _firstPin = '';
   String _errorText = '';
   bool _canUseBiometrics = false;
+  bool _isAuthenticating = false; // --- FIX: Add flag to prevent multiple auth attempts ---
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -89,6 +90,14 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
   }
 
   Future<void> _authenticateWithBiometrics() async {
+    // --- FIX: Prevent multiple concurrent authentication attempts ---
+    if (_isAuthenticating) return;
+    if (mounted) {
+      setState(() {
+        _isAuthenticating = true;
+      });
+    }
+
     bool authenticated = false;
     try {
       authenticated = await _localAuth.authenticate(
@@ -100,12 +109,20 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
       );
     } on PlatformException {
       // Handle error if needed
+      authenticated = false;
     }
 
     if (!mounted) return;
 
     if (authenticated) {
       _onSuccessfulAuthentication();
+    }
+
+    // --- FIX: Reset the flag after the attempt is complete ---
+    if (mounted) {
+      setState(() {
+        _isAuthenticating = false;
+      });
     }
   }
 

@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flynse/core/data/repositories/debt_repository.dart';
@@ -7,6 +6,7 @@ import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/features/debt/ui/pages/debt_schedule_page.dart';
 import 'package:flynse/features/debt/ui/pages/repayment_history_page.dart';
+import 'package:flynse/features/settings/friend_history_page.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -204,6 +204,29 @@ class _DebtCardState extends State<DebtCard> {
     final nf =
         NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
+    // --- FIX: Determine the correct navigation action for the history button ---
+    final friendId = widget.debt['friend_id'] as int?;
+    VoidCallback onViewHistoryPressed;
+
+    if (friendId != null) {
+      // If the debt is linked to a friend, navigate to the full friend history page.
+      onViewHistoryPressed = () {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => FriendHistoryPage(
+            friendId: friendId,
+            friendName: widget.debt['name'],
+          ),
+        ));
+      };
+    } else {
+      // Otherwise, navigate to the standard repayment history page.
+      onViewHistoryPressed = () {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => RepaymentHistoryPage(debt: widget.debt),
+        ));
+      };
+    }
+
     if (isUserDebtor) {
       // --- View for User's Own Complex Debts ---
       final principal = widget.debt['principal_amount'] as double;
@@ -229,12 +252,7 @@ class _DebtCardState extends State<DebtCard> {
               TextButton.icon(
                 icon: const Icon(Icons.history_rounded, size: 18),
                 label: const Text('View History'),
-                onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) =>
-                        RepaymentHistoryPage(debt: widget.debt),
-                  ));
-                },
+                onPressed: onViewHistoryPressed, // Use the corrected callback
               ),
               Row(
                 children: [
@@ -270,12 +288,7 @@ class _DebtCardState extends State<DebtCard> {
               TextButton.icon(
                 icon: const Icon(Icons.history_rounded, size: 18),
                 label: const Text('View History'),
-                onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) =>
-                        RepaymentHistoryPage(debt: widget.debt),
-                  ));
-                },
+                onPressed: onViewHistoryPressed, // Use the corrected callback
               ),
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_card_rounded, size: 18),
@@ -516,21 +529,6 @@ class _DebtCardState extends State<DebtCard> {
     );
   }
 
-  double _calculateEmiFallback(Map<String, dynamic> debt) {
-    final double principal = debt['principal_amount'] as double;
-    final double rate = (debt['interest_rate'] as num? ?? 0).toDouble();
-    final int term = (debt['loan_term_years'] as num? ?? 0).toInt();
-    if (rate > 0 && term > 0) {
-      final monthlyRate = rate / 12 / 100;
-      final numberOfMonths = term * 12;
-      return (principal *
-              monthlyRate *
-              pow(1 + monthlyRate, numberOfMonths)) /
-          (pow(1 + monthlyRate, numberOfMonths) - 1);
-    }
-    return 0;
-  }
-
   void _showPaymentDialog(BuildContext context, Map<String, dynamic> debt) async {
     final formKey = GlobalKey<FormState>();
     final amountController = TextEditingController();
@@ -538,13 +536,12 @@ class _DebtCardState extends State<DebtCard> {
     final appProvider = context.read<AppProvider>();
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    // Fetch the absolute latest debt details from the provider right before showing the dialog
     final latestDebt = debtProvider.userDebts.firstWhere((d) => d['id'] == debt['id'], orElse: () => debt);
 
     final bool hasInterestOrTerm = (latestDebt['interest_rate'] as num? ?? 0) > 0 || (latestDebt['loan_term_years'] as num? ?? 0) > 0;
 
-    // If it's a simple loan, show a simple dialog
     if (!hasInterestOrTerm) {
+      if (!mounted) return;
       _showSimplePaymentDialog(context, latestDebt);
       return;
     }
@@ -554,12 +551,18 @@ class _DebtCardState extends State<DebtCard> {
     final loanStartPeriod = DateTime(loanStartDate.year, loanStartDate.month);
     final isLoanActiveInSelectedPeriod = !selectedPeriodDate.isBefore(loanStartPeriod);
 
-    final double currentEmi = (latestDebt['current_emi'] as double?) ?? _calculateEmiFallback(latestDebt);
+    // --- FIX: Removed the fallback calculation ---
+    // The EMI value is now trusted to be correct in the database.
+    // If it's null, it defaults to 0.0.
+    final double currentEmi = (latestDebt['current_emi'] as double?) ?? 0.0;
     final totalAmount = latestDebt['total_amount'] as double;
     final amountPaid = latestDebt['amount_paid'] as double;
     final remainingAmount = totalAmount - amountPaid;
 
     final List<Map<String, dynamic>> repayments = await _debtRepo.getRepaymentHistory(latestDebt['id']);
+    
+    if (!mounted) return;
+
     final isEmiPaidForCurrentMonth = repayments.any((r) {
         final repaymentDate = DateTime.parse(r['transaction_date']);
         return r['prepayment_option'] == null &&
@@ -666,6 +669,8 @@ class _DebtCardState extends State<DebtCard> {
                          }
                       }
 
+                      if (!mounted) return;
+
                       if (prepaymentAmount > 0) {
                         final prepaymentOption = await _showPrepaymentChoiceDialog(context);
                         if (prepaymentOption != null) {
@@ -682,7 +687,7 @@ class _DebtCardState extends State<DebtCard> {
                       
                       if(paymentMade) {
                          await appProvider.refreshAllData();
-                         if(scaffoldMessenger.mounted) {
+                         if(mounted) {
                             scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Payment recorded successfully!')));
                          }
                       }

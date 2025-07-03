@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flynse/core/data/repositories/settings_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/ui/home_page.dart';
 import 'package:flynse/ui/onboarding_page.dart';
-import 'package:flynse/features/security/pin_lock_page.dart';
 import 'package:flynse/shared/theme/theme_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,10 +54,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await appProvider.init();
 
     final prefs = await SharedPreferences.getInstance();
-    final dbHelper = SettingsRepository();
     
     final isFirstRun = !prefs.containsKey('has_opened_before');
-    final pin = await dbHelper.getPin();
 
     if (!mounted) return;
 
@@ -68,15 +64,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         MaterialPageRoute(builder: (context) => const OnboardingPage()),
       );
     } else {
-      if (pin != null) {
-        navigator.pushReplacement(
-          MaterialPageRoute(builder: (context) => const PinLockPage(mode: PinLockMode.enter)),
-        );
-      } else {
-        navigator.pushReplacement(
-          MaterialPageRoute(builder: (context) => const MyHomePage()),
-        );
-      }
+      // --- FIX: Always navigate to the home page ---
+      // The home page itself is now responsible for handling the lock screen logic.
+      // This eliminates the race condition where two lock screens could be pushed.
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (context) => const MyHomePage()),
+      );
     }
   }
 

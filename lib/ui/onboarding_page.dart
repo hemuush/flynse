@@ -118,7 +118,7 @@ class _OnboardingPageState extends State<OnboardingPage>
           onPinCreated: () {
             // After PIN is set, go to the home page.
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const MyHomePage()),
+              MaterialPageRoute(builder: (context) => const MyHomePage(isFirstLaunch: true)), // MODIFIED: Pass the parameter here
               (route) => false,
             );
           },

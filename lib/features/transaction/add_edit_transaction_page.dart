@@ -394,6 +394,9 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
           transactionDate,
         );
       } else if (isLoan) {
+        // --- FIX: Use the date from the form state as the loan's start date ---
+        // This ensures the date selected in the UI is respected, rather than the
+        // potentially time-adjusted transactionDate.
         await debtProvider.addDebt({
           'name': form.loanNameController.text,
           'amount': double.parse(form.amountController.text),
@@ -404,7 +407,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
               ? int.parse(form.termController.text)
               : null,
           'date': transactionDate.toIso8601String(),
-          'loan_start_date': transactionDate.toIso8601String(), // FIX: Ensure date is passed
+          'loan_start_date': form.date.toIso8601String(),
           'is_emi_purchase': form.isEmiPurchase,
           'purchase_description': form.purchaseDescriptionController.text,
         });
