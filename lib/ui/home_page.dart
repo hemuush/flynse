@@ -314,55 +314,64 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           ),
           bottomNavigationBar: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: BottomNavigationBar(
-                  currentIndex: _selectedIndex,
-                  onTap: _onItemTapped,
-                  backgroundColor:
-                      theme.colorScheme.surfaceContainer.withAlpha(204),
-                  type: BottomNavigationBarType.fixed,
-                  showSelectedLabels: true,
-                  showUnselectedLabels: true,
-                  selectedItemColor: theme.colorScheme.primary,
-                  unselectedItemColor: theme.colorScheme.onSurfaceVariant,
-                  elevation: 0,
-                  items: [
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.dashboard_outlined),
-                      activeIcon: Icon(Icons.dashboard_rounded),
-                      label: 'Overview',
-                    ),
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.savings_outlined),
-                      activeIcon: Icon(Icons.savings_rounded),
-                      label: 'Savings',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child:
-                            Icon(Icons.add, color: theme.colorScheme.onPrimary),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: BottomNavigationBar(
+                    currentIndex: _selectedIndex,
+                    onTap: _onItemTapped,
+                    backgroundColor:
+                        theme.colorScheme.surfaceContainer.withAlpha(180),
+                    type: BottomNavigationBarType.fixed,
+                    showSelectedLabels: true,
+                    showUnselectedLabels: true,
+                    selectedItemColor: theme.colorScheme.primary,
+                    unselectedItemColor: theme.colorScheme.onSurfaceVariant,
+                    elevation: 0,
+                    items: [
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.dashboard_outlined),
+                        activeIcon: Icon(Icons.dashboard_rounded),
+                        label: 'Overview',
                       ),
-                      label: '',
-                    ),
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      activeIcon: Icon(Icons.receipt_long_rounded),
-                      label: 'Debts',
-                    ),
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.history_outlined),
-                      activeIcon: Icon(Icons.history_rounded),
-                      label: 'History',
-                    ),
-                  ],
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.savings_outlined),
+                        activeIcon: Icon(Icons.savings_rounded),
+                        label: 'Savings',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child:
+                              Icon(Icons.add, color: theme.colorScheme.onPrimary),
+                        ),
+                        label: '',
+                      ),
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.receipt_long_outlined),
+                        activeIcon: Icon(Icons.receipt_long_rounded),
+                        label: 'Debts',
+                      ),
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.history_outlined),
+                        activeIcon: Icon(Icons.history_rounded),
+                        label: 'History',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

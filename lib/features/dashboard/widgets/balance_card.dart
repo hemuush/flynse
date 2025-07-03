@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/features/dashboard/widgets/monthly_details_sheet.dart';
+import 'package:flynse/shared/widgets/animated_count.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -12,8 +13,15 @@ import 'package:provider/provider.dart';
 /// - A prominent display of the cumulative balance up to the selected month.
 /// - A bar chart showing the breakdown of income, expenses, and savings for the selected month.
 /// - A tappable area to view more detailed monthly information.
-class BalanceCard extends StatelessWidget {
+class BalanceCard extends StatefulWidget {
   const BalanceCard({super.key});
+
+  @override
+  State<BalanceCard> createState() => _BalanceCardState();
+}
+
+class _BalanceCardState extends State<BalanceCard> {
+  int? _touchedIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +39,7 @@ class BalanceCard extends StatelessWidget {
     final cumulativeExpense = provider.cumulativeTotals['Expense'] ?? 0.0;
     final cumulativeSaving = provider.cumulativeTotals['Saving'] ?? 0.0;
     final netBalance = cumulativeIncome - cumulativeExpense - cumulativeSaving;
-    
+
     final monthName =
         DateFormat.MMMM().format(DateTime(0, appProvider.selectedMonth));
 
@@ -71,14 +79,16 @@ class BalanceCard extends StatelessWidget {
               // --- Net Balance Display ---
               FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(
-                  '₹${NumberFormat.decimalPattern('en_IN').format(netBalance)}',
+                child: AnimatedCount(
+                  begin: 0, // Start from 0 or a previous value
+                  end: netBalance,
                   style: theme.textTheme.displayMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: netBalance >= 0
                         ? theme.colorScheme.tertiary
                         : theme.colorScheme.error,
                   ),
+                  decimalDigits: 2,
                 ),
               ),
               const SizedBox(height: 24),
@@ -105,7 +115,31 @@ class BalanceCard extends StatelessWidget {
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: maxValue * 1.2, // Add some padding to the top of the chart
-        barTouchData: BarTouchData(enabled: false),
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final amount = rod.toY;
+              return BarTooltipItem(
+                '₹${NumberFormat.decimalPattern('en_IN').format(amount)}',
+                TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            },
+          ),
+          touchCallback: (FlTouchEvent event, barTouchResponse) {
+            setState(() {
+              if (!event.isInterestedForInteractions ||
+                  barTouchResponse == null ||
+                  barTouchResponse.spot == null) {
+                _touchedIndex = -1;
+                return;
+              }
+              _touchedIndex = barTouchResponse.spot!.touchedBarGroupIndex;
+            });
+          },
+        ),
         titlesData: FlTitlesData(
           // Hide all titles for a cleaner look.
           show: true,
@@ -162,27 +196,29 @@ class BalanceCard extends StatelessWidget {
         borderData: FlBorderData(show: false), // No border
         gridData: const FlGridData(show: false), // No grid lines
         barGroups: [
-          _buildBarGroup(0, income, theme.colorScheme.tertiary),
-          _buildBarGroup(1, expense, theme.colorScheme.secondary),
-          _buildBarGroup(2, saving, Colors.lightGreen.shade400),
+          _buildBarGroup(0, income, theme.colorScheme.tertiary, isTouched: _touchedIndex == 0),
+          _buildBarGroup(1, expense, theme.colorScheme.secondary, isTouched: _touchedIndex == 1),
+          _buildBarGroup(2, saving, Colors.lightGreen.shade400, isTouched: _touchedIndex == 2),
         ],
       ),
     );
   }
 
   /// Helper to create a single group of bars for the chart.
-  BarChartGroupData _buildBarGroup(int x, double y, Color color) {
+  BarChartGroupData _buildBarGroup(int x, double y, Color color, {bool isTouched = false}) {
+    final double width = isTouched ? 28 : 24;
     return BarChartGroupData(
       x: x,
       barRods: [
         BarChartRodData(
           toY: y,
           color: color,
-          width: 24,
+          width: width,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(6),
             topRight: Radius.circular(6),
           ),
+          borderSide: isTouched ? BorderSide(color: color.withOpacity(0.8), width: 2) : const BorderSide(color: Colors.transparent),
         ),
       ],
     );

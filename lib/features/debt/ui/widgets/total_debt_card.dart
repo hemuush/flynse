@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flynse/shared/widgets/animated_count.dart';
 
 class TotalDebtCard extends StatelessWidget {
   final String title;
@@ -23,12 +23,6 @@ class TotalDebtCard extends StatelessWidget {
     final IconData icon = isUserDebtor
         ? Icons.arrow_circle_up_rounded
         : Icons.arrow_circle_down_rounded;
-
-    final formattedTotal = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: '₹',
-      decimalDigits: 0,
-    ).format(total);
 
     return Card(
       elevation: 0,
@@ -88,11 +82,11 @@ class TotalDebtCard extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                formattedTotal,
+              child: AnimatedCount(
+                begin: 0,
+                end: total,
                 style: theme.textTheme.displaySmall
                     ?.copyWith(fontWeight: FontWeight.bold, color: color),
-                maxLines: 1,
               ),
             ),
           ],

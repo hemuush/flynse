@@ -17,7 +17,7 @@ class RecentTransactionsList extends StatelessWidget {
 
     if (transactions.isEmpty) {
       // Return an empty state if there are no transactions.
-      return _buildEmptyState(theme);
+      return _buildEmptyState(context);
     }
 
     return Column(
@@ -56,7 +56,8 @@ class RecentTransactionsList extends StatelessWidget {
   }
 
   /// Builds the view shown when there are no recent transactions.
-  Widget _buildEmptyState(ThemeData theme) {
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       elevation: 0,
       color: theme.colorScheme.surfaceContainer,
@@ -84,14 +85,23 @@ class RecentTransactionsList extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
-                "Your recent activity will appear here.",
+                "Tap the '+' button to add your first transaction.",
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.read<AppProvider>().navigateToTab(2), // FAB index
+                icon: const Icon(Icons.add_rounded),
+                label: const Text("Add Transaction"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              )
             ],
           ),
         ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/savings_provider.dart';
 import 'package:flynse/features/savings/widgets/savings_growth_sheet.dart';
+import 'package:flynse/shared/widgets/animated_count.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class TotalSavingsCard extends StatelessWidget {
@@ -69,8 +69,9 @@ class TotalSavingsCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Center(
-              child: Text(
-                '₹${NumberFormat.decimalPattern('en_IN').format(totalSavings.round())}',
+              child: AnimatedCount(
+                begin: 0,
+                end: totalSavings,
                 style: GoogleFonts.outfit(
                   color: savingsColor,
                   fontSize: 48,
