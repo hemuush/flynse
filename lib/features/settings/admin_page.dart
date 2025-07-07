@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/category_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
+import 'package:flynse/shared/constants/app_constants.dart';
 import 'package:provider/provider.dart';
 
 class AdminPage extends StatefulWidget {
@@ -18,26 +19,26 @@ class _AdminPageState extends State<AdminPage> {
   List<Map<String, dynamic>> _incomeCategories = [];
   List<Map<String, dynamic>> _savingCategories = [];
 
-  // Define a list of categories that cannot be deleted.
+  // FIX: Use constants for special category names to avoid typos.
   static const _nonDeletableCategories = [
-    'Debt Repayment',
-    'Loan',
-    'Savings Withdrawal',
-    'Bank',
-    'Shopping',
-    'Others',
-    'Friends',
-    'Friend Repayment',
+    AppConstants.kCatDebtRepayment,
+    AppConstants.kCatLoan,
+    AppConstants.kCatSavingsWithdrawal,
+    AppConstants.kCatBank,
+    AppConstants.kCatShopping,
+    AppConstants.kCatOthers,
+    AppConstants.kCatFriends,
+    AppConstants.kCatFriendRepayment,
   ];
 
-  // Define a list of system categories that should not have sub-categories.
+  // FIX: Use constants for special category names to avoid typos.
   static const _nonTappableCategories = [
-    'Debt Repayment',
-    'Loan',
-    'Savings Withdrawal',
-    'Bank',
-    'Friends',
-    'Friend Repayment',
+    AppConstants.kCatDebtRepayment,
+    AppConstants.kCatLoan,
+    AppConstants.kCatSavingsWithdrawal,
+    AppConstants.kCatBank,
+    AppConstants.kCatFriends,
+    AppConstants.kCatFriendRepayment,
   ];
 
   @override

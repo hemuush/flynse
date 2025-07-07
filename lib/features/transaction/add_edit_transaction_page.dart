@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/category_repository.dart';
+import 'package:flynse/core/data/repositories/friend_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/core/providers/transaction_provider.dart';
@@ -9,6 +10,7 @@ import 'package:flynse/features/transaction/widgets/friend_repayment_selector.da
 import 'package:flynse/features/transaction/widgets/friend_selector.dart';
 import 'package:flynse/features/transaction/widgets/savings_withdrawal_selector.dart';
 import 'package:flynse/features/transaction/widgets/transaction_form_models.dart';
+import 'package:flynse/shared/constants/app_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -33,6 +35,7 @@ class AddEditTransactionPage extends StatefulWidget {
 class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
   final _formKey = GlobalKey<FormState>();
   final _categoryRepo = CategoryRepository();
+  final _friendRepo = FriendRepository();
   final List<TransactionFormState> _transactionForms = [];
   final Uuid _uuid = const Uuid();
   late PageController _pageController;
@@ -131,7 +134,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
     _addTransactionForm(
       type: initialType,
       categoryName: widget.isLoanToFriend
-          ? 'Friends'
+          ? AppConstants.kCatFriends
           : widget.transaction?['category'],
       subCategoryNames: subCategories,
       amount: widget.transaction?['amount']?.toString(),
@@ -217,7 +220,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         final categories = await _categoryRepo.getCategories(type);
         try {
           formState.category =
-              categories.firstWhere((c) => c['name'] == 'Bank');
+              categories.firstWhere((c) => c['name'] == AppConstants.kCatBank);
         } catch (e) {
           /* Category not found */
         }
@@ -276,7 +279,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         allCategoriesSelected = false;
         break;
       }
-      if (form.category?['name'] == 'Friends' && form.selectedFriend == null) {
+      if (form.category?['name'] == AppConstants.kCatFriends && form.selectedFriend == null) {
          if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(
              const SnackBar(content: Text('Please select a friend for the transaction.')),
@@ -311,7 +314,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
       final DateTime transactionDate = isToday ? now : form.date;
 
-      final bool isLoan = form.type == 'Income' && form.category?['name'] == 'Loan';
+      final bool isLoan = form.type == 'Income' && form.category?['name'] == AppConstants.kCatLoan;
       final bool isDebtRepayment = form.isDebtRepayment;
       final bool isSavingsWithdrawal = form.isSavingsWithdrawal;
 
@@ -320,7 +323,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         description = form.descriptionController.text;
       } else {
         description = form.category!['name'];
-        if (form.category?['name'] == 'Friends' && form.selectedFriend != null) {
+        if (form.category?['name'] == AppConstants.kCatFriends && form.selectedFriend != null) {
           if (form.type == 'Expense') {
             description = 'Paid to ${form.selectedFriend!['name']}';
           } else if (form.type == 'Income') {
@@ -372,7 +375,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
           'description': 'Transfer from Savings',
           'amount': amount.abs(),
           'type': 'Income',
-          'category': 'From Savings',
+          'category': AppConstants.kCatFromSavings,
           'transaction_date': transactionDate.toIso8601String(),
           'pair_id': pairId,
         });
@@ -394,9 +397,6 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
           transactionDate,
         );
       } else if (isLoan) {
-        // --- FIX: Use the date from the form state as the loan's start date ---
-        // This ensures the date selected in the UI is respected, rather than the
-        // potentially time-adjusted transactionDate.
         await debtProvider.addDebt({
           'name': form.loanNameController.text,
           'amount': double.parse(form.amountController.text),
@@ -435,7 +435,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
           'category': form.category!['name'],
           'sub_category': form.subCategories.join(','),
           'transaction_date': transactionDate.toIso8601String(),
-          if (form.category?['name'] == 'Friends' &&
+          if (form.category?['name'] == AppConstants.kCatFriends &&
               form.selectedFriend != null)
             'friend_id': form.selectedFriend!['id'],
         };
@@ -455,63 +455,187 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
     await appProvider.refreshAllData();
 
-    if (navigator.mounted) navigator.pop();
+    // FIX: Add a `mounted` check before using the Navigator to avoid errors
+    // if the widget is disposed during the async operations.
+    if (!mounted) return;
+    navigator.pop();
   }
 
+  // FIX: These dialog functions now only return the name of the new item,
+  // letting the calling widget handle the database insertion. This respects
+  // the component architecture and fixes the type errors.
 
-  Future<String?> _showAddDialog(String title, String label) {
+  Future<String?> _showAddCategoryDialog(
+      String title, String label, String type) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            decoration: InputDecoration(labelText: label),
-            autofocus: true,
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Name cannot be empty' : null,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: InputDecoration(labelText: label),
+              autofocus: true,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Name cannot be empty' : null,
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final newName = controller.text.trim();
+                  final existing =
+                      await _categoryRepo.getCategories(type, filter: newName);
+                  if (existing.any((cat) =>
+                      cat['name'].toLowerCase() == newName.toLowerCase())) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                          content: Text('Category "$newName" already exists.')),
+                    );
+                    return;
+                  }
+                  navigator.pop(newName);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String?> _showAddFriendDialog(String title, String label) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: InputDecoration(labelText: label),
+              autofocus: true,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Name cannot be empty' : null,
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                Navigator.of(context).pop(controller.text);
-              }
-            },
-            child: const Text('Save'),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final newName = controller.text.trim();
+                  final existing = await _friendRepo.getFriends(filter: newName);
+                  if (existing.any((friend) =>
+                      friend['name'].toLowerCase() == newName.toLowerCase())) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Friend "$newName" already exists.')),
+                    );
+                    return;
+                  }
+                  navigator.pop(newName);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String?> _showAddSubCategoryDialog(
+      String title, String label, int categoryId) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: InputDecoration(labelText: label),
+              autofocus: true,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Name cannot be empty' : null,
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => navigator.pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final newName = controller.text.trim();
+                  final existing = await _categoryRepo.getSubCategories(categoryId,
+                      filter: newName);
+                  if (existing.any((sub) =>
+                      sub['name'].toLowerCase() == newName.toLowerCase())) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                          content:
+                              Text('Sub-category "$newName" already exists.')),
+                    );
+                    return;
+                  }
+                  navigator.pop(newName);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // FIX: Replaced deprecated `onPopInvoked` with a safer pattern to handle back navigation.
     return PopScope(
       canPop: false,
-      onPopInvoked: (bool didPop) async {
+      onPopInvoked: (bool didPop) {
         if (didPop) {
           return;
         }
-        final navigator = Navigator.of(context);
         if (_isFormDirty()) {
-          final bool shouldPop = await _showDiscardDialog();
-          if (shouldPop && navigator.canPop()) {
-            navigator.pop();
-          }
+          _showDiscardDialog().then((bool? shouldPop) {
+            if (shouldPop == true && mounted) {
+              Navigator.of(context).pop();
+            }
+          });
         } else {
-          if (navigator.canPop()) {
-            navigator.pop();
-          }
+          Navigator.of(context).pop();
         }
       },
       child: Scaffold(
@@ -609,9 +733,9 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
   Widget _buildTransactionForm(TransactionFormState formState, int index) {
     final theme = Theme.of(context);
-    final isLoan = formState.type == 'Income' && formState.category?['name'] == 'Loan';
+    final isLoan = formState.type == 'Income' && formState.category?['name'] == AppConstants.kCatLoan;
     final isExpense = formState.type == 'Expense';
-    final isFriendTransaction = formState.category?['name'] == 'Friends';
+    final isFriendTransaction = formState.category?['name'] == AppConstants.kCatFriends;
     final isFriendRepayment = formState.isFriendRepayment;
     final isDebtRepayment = formState.isDebtRepayment;
     final isSavingsWithdrawal = formState.isSavingsWithdrawal;
@@ -655,7 +779,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                   isTryingToSubmit: _isTryingToSubmit,
                   onStateChanged: () => setState(() {}),
                   showAddDialog: (context, {required title, required label}) =>
-                      _showAddDialog(title, label),
+                      _showAddCategoryDialog(title, label, formState.type),
                   isLocked: widget.isLoanToFriend,
                 ),
                 AnimatedSwitcher(
@@ -679,7 +803,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                         const SizedBox(height: 16),
                         FriendSelector(
                           formState: formState,
-                          showAddDialog: _showAddDialog,
+                          showAddDialog: (title, label) =>
+                              _showAddFriendDialog(title, label),
                           onStateChanged: () => setState(() {}),
                           isTryingToSubmit: _isTryingToSubmit,
                         ),
@@ -714,9 +839,9 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                              setState(() {});
                           },
                           syncSplits: _syncSplitsFromSubCategories,
-                          showAddDialog: (
-                              {required String title, required String label}) {
-                            return _showAddDialog(title, label);
+                          showAddDialog: ({required String title, required String label}) {
+                            return _showAddSubCategoryDialog(
+                                title, label, formState.category!['id']);
                           },
                         ),
                       ]

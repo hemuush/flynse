@@ -20,39 +20,18 @@ class DebtProvider with ChangeNotifier {
   List<Map<String, dynamic>> _completedUserDebts = [];
   List<Map<String, dynamic>> get completedUserDebts => _completedUserDebts;
 
-  List<Map<String, dynamic>> _friendLoans = [];
-  List<Map<String, dynamic>> get friendLoans => _friendLoans;
-
-  List<Map<String, dynamic>> _completedFriendLoans = [];
-  List<Map<String, dynamic>> get completedFriendLoans => _completedFriendLoans;
-
-  double _totalOwedToUser = 0.0;
-  double get totalOwedToUser => _totalOwedToUser;
-
-  int _debtViewIndex = 0;
-  int get debtViewIndex => _debtViewIndex;
-
-  void setDebtViewIndex(int index) {
-    if (_debtViewIndex != index) {
-      _debtViewIndex = index;
-      notifyListeners();
-    }
-  }
-
-  /// Fetches all debt-related data from the repository.
+  /// MODIFIED: Fetches only non-friend related debt data.
   Future<void> loadDebts(int year, int month) async {
     _isLoading = true;
     notifyListeners();
     try {
       await _debtRepo.applyAnnualInterest();
 
-      _userDebts = await _debtRepo.getDebts(isUserDebtor: true, isClosed: false);
-      _completedUserDebts =
-          await _debtRepo.getDebts(isUserDebtor: true, isClosed: true);
-      _friendLoans =
-          await _debtRepo.getDebts(isUserDebtor: false, isClosed: false);
-      _completedFriendLoans =
-          await _debtRepo.getDebts(isUserDebtor: false, isClosed: true);
+      // Fetch only personal (non-friend) debts.
+      _userDebts = await _debtRepo.getDebts(
+          isUserDebtor: true, isClosed: false, nonFriendDebtsOnly: true);
+      _completedUserDebts = await _debtRepo.getDebts(
+          isUserDebtor: true, isClosed: true, nonFriendDebtsOnly: true);
 
       _totalPendingDebt = 0.0;
       for (final debt in _userDebts) {
@@ -61,11 +40,6 @@ class DebtProvider with ChangeNotifier {
       }
       _activeDebtCount = _userDebts.length;
 
-      _totalOwedToUser = 0.0;
-      for (final debt in _friendLoans) {
-        _totalOwedToUser +=
-            (debt['total_amount'] as double) - (debt['amount_paid'] as double);
-      }
     } catch (e) {
       log("Error fetching debts data: $e");
     } finally {

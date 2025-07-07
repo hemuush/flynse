@@ -625,6 +625,7 @@ class _SettingsPageState extends State<SettingsPage>
 
   Widget _buildAppearanceTab(SettingsProvider provider) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     Widget colorTile(String title, Color? currentColor, Color defaultColor,
         Function(Color) onSave) {
@@ -665,19 +666,15 @@ class _SettingsPageState extends State<SettingsPage>
           ],
         ),
         const SizedBox(height: 16),
+        // MODIFICATION: Changed this section to set the theme's seed color
         _buildSectionCard(
-          title: 'Page Background Colors',
+          title: 'Theme Color',
           children: [
             colorTile(
-                'Light Dashboard',
-                provider.dashboardBgLight,
-                Colors.grey.shade100,
-                (c) => provider.setDashboardBgColor(c, false)),
-            colorTile(
-                'Dark Dashboard',
-                provider.dashboardBgDark,
-                Colors.grey.shade800,
-                (c) => provider.setDashboardBgColor(c, true)),
+                'Primary Color',
+                isDarkMode ? provider.seedColorDark : provider.seedColorLight,
+                isDarkMode ? const Color(0xFF4A90E2) : const Color(0xFF007AFF),
+                (c) => provider.setThemeSeedColor(c, isDarkMode)),
           ],
         ),
       ],

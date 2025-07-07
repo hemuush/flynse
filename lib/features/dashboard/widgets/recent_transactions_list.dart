@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
+import 'package:flynse/core/routing/app_router.dart';
+import 'package:flynse/features/transaction/transaction_list_page.dart';
+import 'package:flynse/features/transaction/widgets/transaction_form_models.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -33,7 +35,12 @@ class RecentTransactionsList extends StatelessWidget {
                   theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             TextButton(
-              onPressed: () => context.read<AppProvider>().navigateToTab(3), // Navigate to history tab
+              // FIX: Corrected navigation to go directly to the TransactionListPage.
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TransactionListPage()),
+                );
+              },
               child: const Text("View All"),
             ),
           ],
@@ -95,7 +102,12 @@ class RecentTransactionsList extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () => context.read<AppProvider>().navigateToTab(2), // FAB index
+                onPressed: () {
+                  Navigator.of(context).pushNamed(
+                    AppRouter.addEditTransactionPage,
+                    arguments: AddEditTransactionPageArgs(),
+                  );
+                },
                 icon: const Icon(Icons.add_rounded),
                 label: const Text("Add Transaction"),
                 style: ElevatedButton.styleFrom(

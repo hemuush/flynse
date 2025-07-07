@@ -5,6 +5,7 @@ import 'package:flynse/core/providers/analytics_provider.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/core/providers/savings_provider.dart';
 import 'package:flynse/core/providers/settings_provider.dart';
 import 'package:flynse/core/providers/transaction_provider.dart';
@@ -36,17 +37,23 @@ Future<void> main() async {
   // Initialize timezones synchronously (it's fast)
   tz.initializeTimeZones();
 
+  // FIX: Initialize ThemeNotifier and load the theme before running the app
+  // to prevent a theme flicker on startup.
+  final themeNotifier = ThemeNotifier();
+  await themeNotifier.loadTheme();
+
   runApp(
     MultiProvider(
       providers: [
         // --- CORRECTED ORDER ---
         // Independent, feature-specific providers are declared first.
-        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+        ChangeNotifierProvider.value(value: themeNotifier), // Use .value for existing instance
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => AnalyticsProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => DebtProvider()),
+        ChangeNotifierProvider(create: (_) => FriendProvider()), // NEW
         ChangeNotifierProvider(create: (_) => SavingsProvider()),
         // The AppProvider, which depends on the others, is declared last.
         ChangeNotifierProvider(create: (context) => AppProvider(context)),
@@ -61,14 +68,17 @@ class FlynseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeNotifier>(
-      builder: (context, theme, child) {
+    // FIX: Consume both ThemeNotifier and SettingsProvider to ensure the UI
+    // rebuilds when either the theme mode (light/dark) or the theme color changes.
+    return Consumer2<ThemeNotifier, SettingsProvider>(
+      builder: (context, themeNotifier, settingsProvider, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Flynse',
-          theme: LightTheme.theme,
-          darkTheme: DarkTheme.theme,
-          themeMode: theme.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          // Build themes dynamically using seed colors from settings
+          theme: LightTheme.buildTheme(settingsProvider.seedColorLight),
+          darkTheme: DarkTheme.buildTheme(settingsProvider.seedColorDark),
+          themeMode: themeNotifier.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           
           // Use the AppRouter for all navigation.
           initialRoute: AppRouter.splashScreen,

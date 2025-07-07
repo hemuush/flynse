@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/features/transaction/widgets/transaction_form_models.dart';
 import 'package:provider/provider.dart';
 
@@ -15,8 +15,9 @@ class FriendRepaymentSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final debtProvider = context.watch<DebtProvider>();
-    final debtsOwedToUser = debtProvider.friendLoans;
+    final friendProvider = context.watch<FriendProvider>();
+    // FIX: Changed friendLoans to loansToFriends to match the provider.
+    final debtsOwedToUser = friendProvider.loansToFriends;
 
     if (debtsOwedToUser.isEmpty) {
       return Container(

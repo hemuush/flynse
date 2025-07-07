@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flynse/core/data/repositories/settings_repository.dart';
 import 'package:flynse/core/providers/analytics_provider.dart';
 import 'package:flynse/core/providers/app_provider.dart';
-import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/core/providers/settings_provider.dart';
 import 'package:flynse/core/routing/app_router.dart';
 import 'package:flynse/features/dashboard/dashboard_page.dart';
 import 'package:flynse/features/dashboard/widgets/yearly_details_sheet.dart';
 import 'package:flynse/features/debt/debt.dart';
+import 'package:flynse/features/friends/friends.dart';
 import 'package:flynse/features/security/pin_lock_page.dart';
 import 'package:flynse/features/savings/savings_page.dart';
 import 'package:flynse/features/transaction/transaction_list_page.dart';
@@ -18,9 +18,9 @@ import 'package:flynse/features/transaction/widgets/transaction_form_models.dart
 import 'package:provider/provider.dart';
 
 class MyHomePage extends StatefulWidget {
-  final bool isFirstLaunch; // MODIFIED: Add this parameter
+  final bool isFirstLaunch;
 
-  const MyHomePage({super.key, this.isFirstLaunch = false}); // MODIFIED: Update constructor
+  const MyHomePage({super.key, this.isFirstLaunch = false});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -28,6 +28,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  // The page index is derived from the selected index, skipping the FAB.
   int get _pageIndex => _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex;
 
   DateTime? _lastPressedAt;
@@ -39,19 +40,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    // Allows other parts of the app to trigger tab navigation.
     context.read<AppProvider>().setNavigateToTab((int index) {
       if (mounted) {
-        _onItemTapped(index > 1 ? index + 1 : index);
+        _onItemTapped(index > 2 ? index + 1 : index);
       }
     });
 
+    // Initial setup after the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SettingsProvider>().checkAndPerformAutoBackup();
-      // --- FIX: Trigger the initial lock check ONLY if it's not the first launch ---
-      if (!widget.isFirstLaunch) { // MODIFIED: Use the new parameter here
+      if (!widget.isFirstLaunch) {
         _checkPinAndLock();
       } else {
-        // If it is the first launch, just unlock the app
         setState(() {
           _isLocked = false;
         });
@@ -65,6 +66,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // Handles app lifecycle changes to re-lock the app when paused.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
@@ -80,6 +82,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
+  // Checks if a PIN exists and shows the lock screen if needed.
   Future<void> _checkPinAndLock() async {
     final settingsRepo = SettingsRepository();
     final pinExists = await settingsRepo.getPin() != null;
@@ -108,23 +111,26 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
-
+  // The main pages for the IndexedStack. History page is now separate.
   final List<Widget> _mainPages = [
     const DashboardPage(),
     const SavingsPage(),
     const DebtPage(),
-    const TransactionListPage(),
+    const FriendsPage(),
   ];
 
+  // Titles for the app bar corresponding to the pages.
   static const List<String> _pageTitles = [
     'Overview',
     'Savings',
     'Debts',
-    'History',
+    'Friends',
   ];
 
+  // Handles taps on the bottom navigation bar items.
   void _onItemTapped(int index) {
     HapticFeedback.lightImpact();
+    // The center button (index 2) is the FAB.
     if (index == 2) {
       _onFabPressed();
       return;
@@ -132,43 +138,38 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     setState(() {
       _selectedIndex = index;
     });
-
-    context.read<AppProvider>().setShowFab(true);
   }
 
+  // Navigates to the settings page.
   void _navigateToSettings() {
     HapticFeedback.lightImpact();
-    Navigator.of(context).pushNamed(AppRouter.settingsPage).then((_) {
-      setState(() {});
-    });
+    Navigator.of(context).pushNamed(AppRouter.settingsPage);
   }
 
+  // Determines the action when the Floating Action Button is pressed.
   void _onFabPressed() {
     HapticFeedback.mediumImpact();
     String routeName;
     Object? arguments;
 
-    final debtProvider = context.read<DebtProvider>();
     final pageIndexForAction = _pageIndex;
 
     switch (pageIndexForAction) {
-      case 0:
-      case 3:
+      case 0: // Dashboard
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs();
         break;
-      case 1:
+      case 1: // Savings
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs(isSaving: true);
         break;
-      case 2:
-        if (debtProvider.debtViewIndex == 0) {
-          routeName = AppRouter.addDebtPage;
-          arguments = null;
-        } else {
-          routeName = AppRouter.addEditTransactionPage;
-          arguments = AddEditTransactionPageArgs(isLoanToFriend: true);
-        }
+      case 2: // Debts
+        routeName = AppRouter.addDebtPage;
+        arguments = null;
+        break;
+      case 3: // Friends
+        routeName = AppRouter.addEditTransactionPage;
+        arguments = AddEditTransactionPageArgs(isLoanToFriend: true);
         break;
       default:
         return;
@@ -180,18 +181,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
     final settingsProvider = context.watch<SettingsProvider>();
 
+    // Determines the starting color for the background gradient.
     Color getStartColor() {
       if (_pageIndex == 0) {
-        if (isDarkMode) {
-          return settingsProvider.dashboardBgDark ??
-              Color.lerp(theme.colorScheme.primary, Colors.black, 0.6)!;
-        } else {
-          return settingsProvider.dashboardBgLight ??
-              theme.colorScheme.primary.withAlpha(100);
-        }
+        return theme.colorScheme.surfaceContainer;
       }
       return theme.scaffoldBackgroundColor;
     }
@@ -201,6 +196,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       theme.scaffoldBackgroundColor,
     ];
 
+    // Determines the title text for the app bar.
     String titleText;
     if (_pageIndex == 0) {
       final firstName = settingsProvider.userName.split(' ').first;
@@ -211,7 +207,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (bool didPop) async {
+      onPopInvoked: (bool didPop) {
         if (didPop) return;
 
         final navigator = Navigator.of(context);
@@ -258,6 +254,15 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             actions: [
+              // --- MODIFICATION: Added History Button ---
+              IconButton(
+                icon: const Icon(Icons.history_rounded),
+                onPressed: () {
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const TransactionListPage()));
+                },
+                tooltip: 'Transaction History',
+              ),
               IconButton(
                 icon: const Icon(Icons.assessment_outlined),
                 onPressed: () async {
@@ -312,20 +317,18 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             index: _pageIndex,
             children: _mainPages,
           ),
+          // --- MODIFICATION: Updated Bottom Navigation Bar ---
           bottomNavigationBar: Padding(
-            // FIX: Adjusted padding for a more compact look.
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Container(
               decoration: BoxDecoration(
-                // FIX: Increased border radius for a more modern, pill-like shape.
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.3),
+                  color: theme.colorScheme.outline.withAlpha((255 * 0.3).round()),
                   width: 1.5,
                 ),
               ),
               child: ClipRRect(
-                // FIX: Increased border radius for a more modern, pill-like shape.
                 borderRadius: BorderRadius.circular(30),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -340,7 +343,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                     selectedItemColor: theme.colorScheme.primary,
                     unselectedItemColor: theme.colorScheme.onSurfaceVariant,
                     elevation: 0,
-                    // FIX: Set explicit font and icon sizes for a more compact layout.
                     iconSize: 22,
                     selectedFontSize: 12,
                     unselectedFontSize: 12,
@@ -369,13 +371,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: theme.colorScheme.primary.withOpacity(0.4),
+                                color: theme.colorScheme.primary.withAlpha((255 * 0.4).round()),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4)
                               )
                             ]
                           ),
-                          // FIX: Adjusted padding and icon size for a more balanced FAB.
                           padding: const EdgeInsets.all(14),
                           child:
                               Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 24),
@@ -388,9 +389,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                         label: 'Debts',
                       ),
                       const BottomNavigationBarItem(
-                        icon: Icon(Icons.history_outlined),
-                        activeIcon: Icon(Icons.history_rounded),
-                        label: 'History',
+                        icon: Icon(Icons.people_outline_rounded),
+                        activeIcon: Icon(Icons.people_rounded),
+                        label: 'Friends',
                       ),
                     ],
                   ),

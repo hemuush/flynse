@@ -54,4 +54,16 @@ class AppConstants {
   
   /// Extra extra large border radius for sheets and popups (24.0).
   static final BorderRadius kBorderRadiusXXLarge = BorderRadius.circular(24.0);
+
+  // --- FIX: Centralized Special Category Names ---
+  // These constants prevent "magic string" errors and make the code safer.
+  static const String kCatDebtRepayment = 'Debt Repayment';
+  static const String kCatLoan = 'Loan';
+  static const String kCatSavingsWithdrawal = 'Savings Withdrawal';
+  static const String kCatBank = 'Bank';
+  static const String kCatShopping = 'Shopping';
+  static const String kCatOthers = 'Others';
+  static const String kCatFriends = 'Friends';
+  static const String kCatFriendRepayment = 'Friend Repayment';
+  static const String kCatFromSavings = 'From Savings';
 }

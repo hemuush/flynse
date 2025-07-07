@@ -235,17 +235,39 @@ class DebtRepository {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getDebts(
-      {required bool isUserDebtor, bool isClosed = false}) async {
+  /// MODIFIED: This method now has an additional filter to fetch only non-friend debts.
+  Future<List<Map<String, dynamic>>> getDebts({
+    required bool isUserDebtor,
+    bool isClosed = false,
+    bool nonFriendDebtsOnly = false,
+  }) async {
     final db = await _database;
+    String whereClause = 'is_user_debtor = ? AND is_closed = ?';
+    List<dynamic> whereArgs = [isUserDebtor ? 1 : 0, isClosed ? 1 : 0];
+
+    if (nonFriendDebtsOnly) {
+      whereClause += ' AND friend_id IS NULL';
+    }
 
     return db.query(
       'debts',
-      where: 'is_user_debtor = ? AND is_closed = ?',
-      whereArgs: [isUserDebtor ? 1 : 0, isClosed ? 1 : 0],
+      where: whereClause,
+      whereArgs: whereArgs,
       orderBy: '(total_amount - amount_paid) DESC',
     );
   }
+
+  /// NEW: Fetches all debts associated with friends.
+  Future<List<Map<String, dynamic>>> getFriendDebts({bool isClosed = false}) async {
+    final db = await _database;
+    return db.query(
+      'debts',
+      where: 'friend_id IS NOT NULL AND is_closed = ?',
+      whereArgs: [isClosed ? 1 : 0],
+      orderBy: '(total_amount - amount_paid) DESC',
+    );
+  }
+
 
   /// MODIFICATION: This method now recalculates the EMI when loan details are updated.
   Future<void> updateDebtInfo({
@@ -380,10 +402,11 @@ class DebtRepository {
         orderBy: 'transaction_date ASC, id ASC');
   }
 
+  /// MODIFIED: This now only calculates pending debt for non-friend loans.
   Future<double> getTotalPendingDebt() async {
     final db = await _database;
     final result = await db.rawQuery(
-        "SELECT SUM(total_amount - amount_paid) as total FROM debts WHERE is_closed = 0 AND is_user_debtor = 1");
+        "SELECT SUM(total_amount - amount_paid) as total FROM debts WHERE is_closed = 0 AND is_user_debtor = 1 AND friend_id IS NULL");
     if (result.isNotEmpty && result.first['total'] != null) {
       return (result.first['total'] as num).toDouble();
     }
@@ -393,7 +416,7 @@ class DebtRepository {
   Future<int> getActiveDebtCount() async {
     final db = await _database;
     final result = await db.rawQuery(
-        "SELECT COUNT(*) as count FROM debts WHERE is_closed = 0 AND is_user_debtor = 1");
+        "SELECT COUNT(*) as count FROM debts WHERE is_closed = 0 AND is_user_debtor = 1 AND friend_id IS NULL");
     if (result.isNotEmpty && result.first['count'] != null) {
       return (result.first['count'] as num).toInt();
     }

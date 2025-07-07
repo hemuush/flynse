@@ -10,10 +10,8 @@ class ThemeNotifier with ChangeNotifier {
   // Getter to access the current theme mode
   bool get isDarkMode => _darkTheme;
 
-  // Default to dark theme when the app starts
-  ThemeNotifier() : _darkTheme = true {
-    _loadFromPrefs();
-  }
+  // FIX: Constructor is now synchronous. Default theme is set here.
+  ThemeNotifier() : _darkTheme = true;
 
   // Toggles the theme and saves the preference
   void toggleTheme() {
@@ -27,8 +25,9 @@ class ThemeNotifier with ChangeNotifier {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  // Loads the saved theme preference from disk
-  Future<void> _loadFromPrefs() async {
+  // FIX: Renamed from _loadFromPrefs to a public method for explicit initialization.
+  // Loads the saved theme preference from disk.
+  Future<void> loadTheme() async {
     await _initPrefs();
     // Default to true (dark mode) if no preference is found
     _darkTheme = _prefs?.getBool(key) ?? true;

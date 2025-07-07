@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/core/providers/savings_provider.dart';
 import 'package:flynse/core/providers/settings_provider.dart';
 import 'package:flynse/core/providers/transaction_provider.dart';
@@ -55,6 +56,7 @@ class AppProvider with ChangeNotifier {
           .read<SavingsProvider>()
           .loadSavingsData(_selectedYear, _selectedMonth),
       context.read<DebtProvider>().loadDebts(_selectedYear, _selectedMonth),
+      context.read<FriendProvider>().loadFriendsData(), // NEW
       context
           .read<TransactionProvider>()
           .loadTransactions(_selectedYear, _selectedMonth),

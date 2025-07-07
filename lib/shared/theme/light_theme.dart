@@ -8,22 +8,22 @@ class LightTheme {
   // --- Private constructor to prevent instantiation ---
   LightTheme._();
 
-  // --- MODIFIED: Light Theme Color Scheme ---
-  static final ColorScheme _lightColorScheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF007AFF), // A bright, modern blue
-    brightness: Brightness.light,
-    primary: const Color(0xFF007AFF),
-    secondary: const Color(0xFFFF6B6B), // A vibrant red for contrast
-    tertiary: const Color(0xFF34C759), // A clear green for success states
-    surface: Colors.white, // The main background is now pure white.
-    surfaceContainer: const Color(0xFFF2F2F7),   // Cards are a light grey.
-    surfaceContainerHighest: const Color(0xFFE5E5EA), // A light grey for containers
-    onPrimary: Colors.white,
-    outline: Colors.grey.shade300, // Lighter outline for light theme
-  );
+  // MODIFICATION: This is now a static method that builds a theme from a seed color.
+  static ThemeData buildTheme(Color? seedColor) {
+    // Use the provided seed color, or a default bright blue if none is provided.
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor ?? const Color(0xFF007AFF),
+      brightness: Brightness.light,
+      primary: seedColor ?? const Color(0xFF007AFF),
+      secondary: const Color(0xFFFF6B6B),
+      tertiary: const Color(0xFF34C759),
+      surface: Colors.white,
+      surfaceContainer: const Color(0xFFF2F2F7),
+      surfaceContainerHighest: const Color(0xFFE5E5EA),
+      onPrimary: Colors.white,
+      outline: Colors.grey.shade300,
+    );
 
-  /// Builds the theme data based on the light color scheme.
-  static ThemeData _buildTheme(ColorScheme colorScheme) {
     final baseTheme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
@@ -55,7 +55,6 @@ class LightTheme {
           borderRadius: AppConstants.kBorderRadiusLarge,
         ),
       ),
-      // --- UI ENHANCEMENT: Input Field Theme ---
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainer,
@@ -79,7 +78,6 @@ class LightTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),
-      // --- UI ENHANCEMENT: Button Themes ---
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
@@ -106,7 +104,6 @@ class LightTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      // --- UI ENHANCEMENT: Chip Theme ---
       chipTheme: ChipThemeData(
         backgroundColor: colorScheme.surfaceContainerHighest,
         labelStyle: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
@@ -119,7 +116,4 @@ class LightTheme {
       ),
     );
   }
-
-  /// Provides the ThemeData for the light mode.
-  static final ThemeData theme = _buildTheme(_lightColorScheme);
 }

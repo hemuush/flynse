@@ -8,22 +8,22 @@ class DarkTheme {
   // --- Private constructor to prevent instantiation ---
   DarkTheme._();
 
-  // --- Dark Theme Color Scheme ---
-  static final ColorScheme _darkColorScheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF4A90E2), // A lighter blue for dark mode seed
-    brightness: Brightness.dark,
-    primary: const Color(0xFF58A6FF), // A clear, accessible blue for dark theme
-    secondary: const Color(0xFFFF8A8A), // Reddish/coral for FAB and accents
-    tertiary: Colors.green.shade400,
-    surface: const Color(0xFF121212),
-    surfaceContainer: const Color(0xFF1E1E1E),
-    surfaceContainerHighest: const Color(0xFF2C2C2E),
-    onPrimary: Colors.black, // Text on primary color should be dark for contrast
-    outline: Colors.grey.shade700,
-  );
+  // MODIFICATION: This is now a static method that builds a theme from a seed color.
+  static ThemeData buildTheme(Color? seedColor) {
+    // Use the provided seed color, or a default lighter blue if none is provided.
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor ?? const Color(0xFF4A90E2),
+      brightness: Brightness.dark,
+      primary: seedColor ?? const Color(0xFF58A6FF),
+      secondary: const Color(0xFFFF8A8A),
+      tertiary: Colors.green.shade400,
+      surface: const Color(0xFF121212),
+      surfaceContainer: const Color(0xFF1E1E1E),
+      surfaceContainerHighest: const Color(0xFF2C2C2E),
+      onPrimary: Colors.black,
+      outline: Colors.grey.shade700,
+    );
 
-  /// Builds the theme data based on the dark color scheme.
-  static ThemeData _buildTheme(ColorScheme colorScheme) {
     final baseTheme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
@@ -52,7 +52,6 @@ class DarkTheme {
           borderRadius: AppConstants.kBorderRadiusLarge,
         ),
       ),
-      // --- UI ENHANCEMENT: Input Field Theme ---
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainer,
@@ -76,7 +75,6 @@ class DarkTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),
-      // --- UI ENHANCEMENT: Button Themes ---
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
@@ -103,7 +101,6 @@ class DarkTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      // --- UI ENHANCEMENT: Chip Theme ---
       chipTheme: ChipThemeData(
         backgroundColor: colorScheme.surfaceContainerHighest,
         labelStyle: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
@@ -116,7 +113,4 @@ class DarkTheme {
       ),
     );
   }
-
-  /// Provides the ThemeData for the dark mode.
-  static final ThemeData theme = _buildTheme(_darkColorScheme);
 }

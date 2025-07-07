@@ -16,16 +16,15 @@ class SettingsProvider with ChangeNotifier {
   String? _profileImageBase64;
   String? get profileImageBase64 => _profileImageBase64;
 
-  // Page-specific background colors
-  Color? _dashboardBgLight;
-  Color? get dashboardBgLight => _dashboardBgLight;
-  Color? _dashboardBgDark;
-  Color? get dashboardBgDark => _dashboardBgDark;
+  // MODIFICATION: Renamed properties to reflect they are seed colors for the theme
+  Color? _seedColorLight;
+  Color? get seedColorLight => _seedColorLight;
+  Color? _seedColorDark;
+  Color? get seedColorDark => _seedColorDark;
 
   String _autoBackupFrequency = 'Off';
   String get autoBackupFrequency => _autoBackupFrequency;
 
-  // --- NEW: To store the user's salary cycle preference ---
   String _salaryCycle = 'start_of_month';
   String get salaryCycle => _salaryCycle;
 
@@ -33,8 +32,12 @@ class SettingsProvider with ChangeNotifier {
   Future<Color?> _loadColor(String key) async {
     final colorStr = await _settingsRepo.getSetting(key);
     if (colorStr != null) {
-      // Assuming the color is stored as a hex string
-      return Color(int.parse(colorStr, radix: 16));
+      try {
+        return Color(int.parse(colorStr, radix: 16));
+      } catch (e) {
+        log("Error parsing color for key $key: $e");
+        return null;
+      }
     }
     return null;
   }
@@ -43,15 +46,12 @@ class SettingsProvider with ChangeNotifier {
     await loadUserNameAndProfile();
     final prefs = await SharedPreferences.getInstance();
     _autoBackupFrequency = prefs.getString('autoBackupFrequency') ?? 'Off';
-    // --- MODIFIED: Load salary cycle setting ---
     _salaryCycle = prefs.getString('salaryCycle') ?? 'start_of_month';
 
-    try {
-      _dashboardBgLight = await _loadColor('dashboard_bg_light');
-      _dashboardBgDark = await _loadColor('dashboard_bg_dark');
-    } catch (e) {
-      log("Error parsing saved colors: $e");
-    }
+    // MODIFICATION: Load seed colors instead of specific background colors
+    _seedColorLight = await _loadColor('seed_color_light');
+    _seedColorDark = await _loadColor('seed_color_dark');
+    
     notifyListeners();
   }
 
@@ -66,19 +66,18 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _setColor(
       String key, Color color, Function(Color) setter) async {
     setter(color);
-    // Storing the color as a hex string to avoid using the deprecated 'value' member directly.
     await _settingsRepo.saveSetting(key, color.value.toRadixString(16));
     notifyListeners();
   }
 
-  Future<void> setDashboardBgColor(Color color, bool isDarkMode) async {
+  // MODIFICATION: Renamed method to be more descriptive of its new function
+  Future<void> setThemeSeedColor(Color color, bool isDarkMode) async {
     await _setColor(
-        isDarkMode ? 'dashboard_bg_dark' : 'dashboard_bg_light',
+        isDarkMode ? 'seed_color_dark' : 'seed_color_light',
         color,
-        (c) => isDarkMode ? _dashboardBgDark = c : _dashboardBgLight = c);
+        (c) => isDarkMode ? _seedColorDark = c : _seedColorLight = c);
   }
 
-  // --- NEW: Method to set and save the salary cycle preference ---
   Future<void> setSalaryCycle(String cycle) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('salaryCycle', cycle);

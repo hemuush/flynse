@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/features/debt/ui/pages/repayment_history_page.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -23,14 +24,14 @@ class ClosedLoansPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
       ),
-      body: Consumer<DebtProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
+      body: Consumer2<DebtProvider, FriendProvider>(
+        builder: (context, debtProvider, friendProvider, child) {
+          if (debtProvider.isLoading || friendProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final completedUserDebts = provider.completedUserDebts;
-          final completedFriendLoans = provider.completedFriendLoans;
+          final completedUserDebts = debtProvider.completedUserDebts;
+          final completedFriendLoans = friendProvider.completedFriendLoans;
 
           // Apply filtering logic
           final bool showUserDebts =

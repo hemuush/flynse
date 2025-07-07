@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/core/providers/savings_provider.dart';
 import 'package:flynse/features/dashboard/widgets/balance_card.dart';
 import 'package:flynse/features/dashboard/widgets/comparison_card.dart';
@@ -131,6 +132,7 @@ class _DashboardPageState extends State<DashboardPage>
     final theme = Theme.of(context);
     final savingsProvider = context.watch<SavingsProvider>();
     final debtProvider = context.watch<DebtProvider>();
+    final friendProvider = context.watch<FriendProvider>();
     
     final savingsAmount = NumberFormat.currency(
       locale: 'en_IN',
@@ -138,16 +140,25 @@ class _DashboardPageState extends State<DashboardPage>
       decimalDigits: 0,
     ).format(savingsProvider.totalSavings);
     
+    // MODIFIED: "You Owe" now combines personal debt and debt to friends.
+    final totalOwed = debtProvider.totalPendingDebt + friendProvider.totalOwedByUser;
     final debtAmount = NumberFormat.currency(
       locale: 'en_IN',
       symbol: '₹',
       decimalDigits: 0,
-    ).format(debtProvider.totalPendingDebt);
+    ).format(totalOwed);
+
+    final owedToUserAmount = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    ).format(friendProvider.totalOwedToUser);
     
-    final hasDebt = debtProvider.totalPendingDebt > 0;
+    final hasDebt = totalOwed > 0;
+    final hasOwedToUser = friendProvider.totalOwedToUser > 0;
     final hasSavings = savingsProvider.totalSavings > 0;
 
-    if (!hasDebt && !hasSavings) {
+    if (!hasDebt && !hasSavings && !hasOwedToUser) {
       return const SizedBox.shrink();
     }
 
@@ -176,16 +187,15 @@ class _DashboardPageState extends State<DashboardPage>
     }
 
     if (hasDebt) {
-      // Add spacing if there's already a savings card.
       if (summaryWidgets.isNotEmpty) {
         summaryWidgets.add(const SizedBox(width: 16));
       }
       summaryWidgets.add(
         Expanded(
           child: SummaryCard(
-            title: "Active Debts",
+            title: "You Owe",
             amount: debtAmount,
-            icon: Icons.receipt_long_rounded,
+            icon: Icons.arrow_circle_up_rounded,
             color: theme.colorScheme.secondary,
             onTap: () => context.read<AppProvider>().navigateToTab(2),
           ),
@@ -193,9 +203,23 @@ class _DashboardPageState extends State<DashboardPage>
       );
     }
 
-    // The IntrinsicHeight widget solves the unbounded height error by giving
-    // the Row a fixed height based on its content, which allows the
-    // Expanded cards to fill that height correctly, even if there's only one.
+    if (hasOwedToUser) {
+      if (summaryWidgets.isNotEmpty) {
+        summaryWidgets.add(const SizedBox(width: 16));
+      }
+      summaryWidgets.add(
+        Expanded(
+          child: SummaryCard(
+            title: "Owed to You",
+            amount: owedToUserAmount,
+            icon: Icons.arrow_circle_down_rounded,
+            color: theme.colorScheme.tertiary,
+            onTap: () => context.read<AppProvider>().navigateToTab(3),
+          ),
+        ),
+      );
+    }
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,

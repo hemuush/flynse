@@ -138,23 +138,29 @@ class TransactionListPageState extends State<TransactionListPage> {
   Widget build(BuildContext context) {
     final provider = context.watch<TransactionProvider>();
 
-    return Column(
-      children: [
-        _buildHeader(),
-        Expanded(
-          child: provider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : provider.filteredTransactions.isEmpty
-                  ? _buildEmptyState(context)
-                  : _buildTransactionList(provider),
-        ),
-      ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Transaction History'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: provider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : provider.filteredTransactions.isEmpty
+                    ? _buildEmptyState(context)
+                    : _buildTransactionList(provider),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTransactionList(TransactionProvider provider) {
      return ListView.builder(
-        // MODIFICATION: Increased bottom padding to prevent overlap with the navigation bar.
         padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 140.0),
         itemCount: provider.filteredTransactions.length,
         itemBuilder: (context, index) {
@@ -329,19 +335,21 @@ class TransactionListPageState extends State<TransactionListPage> {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search transactions...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide.none,
+                // --- FIX: Wrapped TextField in a Material widget ---
+                child: Material(
+                  elevation: 0,
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(25),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search transactions...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: InputBorder.none,
+                      filled: false,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
                     ),
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest,
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
                   ),
                 ),
               ),
