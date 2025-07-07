@@ -8,8 +8,14 @@ import 'package:provider/provider.dart';
 
 class SavingsList extends StatelessWidget {
   final List<Map<String, dynamic>> transactions;
+  // --- NEW: Added title property for flexibility ---
+  final String title;
 
-  const SavingsList({super.key, required this.transactions});
+  const SavingsList({
+    super.key,
+    required this.transactions,
+    this.title = 'Recent Savings', // Default title
+  });
 
   Future<void> _deleteSavingTransaction(BuildContext context, int id) async {
     await context.read<TransactionProvider>().deleteTransaction(id);
@@ -33,9 +39,11 @@ class SavingsList extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4.0, bottom: 8.0, top: 16),
+          // --- FIX: Use the title property ---
           child: Text(
-            'Recent Savings',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            title,
+            style:
+                theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
         ..._buildTransactionList(context, transactions, theme),

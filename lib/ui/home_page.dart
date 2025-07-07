@@ -313,17 +313,20 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             children: _mainPages,
           ),
           bottomNavigationBar: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            // FIX: Adjusted padding for a more compact look.
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
+                // FIX: Increased border radius for a more modern, pill-like shape.
+                borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.2),
+                  color: theme.colorScheme.outline.withOpacity(0.3),
                   width: 1.5,
                 ),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+                // FIX: Increased border radius for a more modern, pill-like shape.
+                borderRadius: BorderRadius.circular(30),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: BottomNavigationBar(
@@ -337,6 +340,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                     selectedItemColor: theme.colorScheme.primary,
                     unselectedItemColor: theme.colorScheme.onSurfaceVariant,
                     elevation: 0,
+                    // FIX: Set explicit font and icon sizes for a more compact layout.
+                    iconSize: 22,
+                    selectedFontSize: 12,
+                    unselectedFontSize: 12,
                     items: [
                       const BottomNavigationBarItem(
                         icon: Icon(Icons.dashboard_outlined),
@@ -351,12 +358,27 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                       BottomNavigationBarItem(
                         icon: Container(
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                Color.lerp(theme.colorScheme.primary, theme.colorScheme.secondary, 0.4)!
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withOpacity(0.4),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4)
+                              )
+                            ]
                           ),
-                          padding: const EdgeInsets.all(12),
+                          // FIX: Adjusted padding and icon size for a more balanced FAB.
+                          padding: const EdgeInsets.all(14),
                           child:
-                              Icon(Icons.add, color: theme.colorScheme.onPrimary),
+                              Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 24),
                         ),
                         label: '',
                       ),

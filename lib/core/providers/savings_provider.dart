@@ -36,13 +36,17 @@ class SavingsProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      _allTimeTotalSavings = await _savingsRepo.getTotalSavings();
+      // --- CORRECTED: Fetch cumulative total and cumulative transaction list ---
       _totalSavings = await _savingsRepo.getTotalSavingsUpToPeriod(year, month);
-      _savingsTransactions = await _savingsRepo.getSavingsTransactions();
+      
+      _savingsTransactions =
+          await _savingsRepo.getSavingsTransactionsUpToPeriod(year, month);
+
+      // These remain as they are, as they deal with all-time data or yearly summaries
+      _allTimeTotalSavings = await _savingsRepo.getTotalSavings();
       _activeSavingsGoal = await _savingsRepo.getActiveSavingsGoal();
       _savingsGrowthData = await _savingsRepo.getSavingsGrowthData();
       _yearlySavings = await _savingsRepo.getYearlySavings();
-      // NEW: Fetch savings by category
       _savingsByCategory = await _savingsRepo.getSavingsByCategory();
       await _checkAndCompleteSavingsGoal();
     } catch (e) {
@@ -54,7 +58,8 @@ class SavingsProvider with ChangeNotifier {
   }
 
   // UPDATED: Now requires a category for withdrawal
-  Future<void> useSavings(double amount, String category, [String? description, DateTime? date]) async {
+  Future<void> useSavings(double amount, String category,
+      [String? description, DateTime? date]) async {
     await _savingsRepo.useSavings(amount, category, description, date);
   }
 

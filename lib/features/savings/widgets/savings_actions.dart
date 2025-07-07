@@ -39,8 +39,9 @@ class SavingsActions extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: OutlinedButton.icon(
+            // --- FIX: Button is now enabled based on all-time savings ---
             onPressed:
-                provider.totalSavings > 0 ? () => _showUseSavingsDialog(context) : null,
+                provider.allTimeTotalSavings > 0 ? () => _showUseSavingsDialog(context) : null,
             icon: const Icon(Icons.north_east),
             label: const Text('Use Savings'),
           ),

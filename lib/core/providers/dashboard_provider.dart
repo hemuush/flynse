@@ -29,7 +29,10 @@ class DashboardProvider with ChangeNotifier {
   Map<String, dynamic>? _lowestExpense;
   Map<String, dynamic>? get lowestExpense => _lowestExpense;
 
-  // --- REMOVED: Unnecessary properties for previous month's data ---
+  // --- NEW: Property for previous month's expense total ---
+  double _previousMonthExpense = 0.0;
+  double get previousMonthExpense => _previousMonthExpense;
+
 
   Future<void> loadDashboardData(int year, int month) async {
     _isLoading = true;
@@ -39,6 +42,8 @@ class DashboardProvider with ChangeNotifier {
         _fetchMonthlyTotals(year, month),
         _fetchRecentTransactions(year, month),
         _fetchHighlightsData(year, month),
+        // --- NEW: Fetch previous month's expense ---
+        _fetchPreviousMonthExpense(year, month),
       ]);
       _monthlyCategoryBreakdown =
           await _analyticsRepo.getCategoryBreakdownForPeriod(year, month);
@@ -73,5 +78,12 @@ class DashboardProvider with ChangeNotifier {
     _lowestExpense = await _analyticsRepo.getExtremeTransaction(
         'Expense', year, month,
         highest: false);
+  }
+
+  // --- NEW: Method to fetch the previous month's expense total ---
+  Future<void> _fetchPreviousMonthExpense(int year, int month) async {
+    DateTime previousMonthDate = DateTime(year, month - 1);
+    final totals = await _analyticsRepo.getTotalsForPeriod(previousMonthDate.year, previousMonthDate.month);
+    _previousMonthExpense = totals['Expense'] ?? 0.0;
   }
 }

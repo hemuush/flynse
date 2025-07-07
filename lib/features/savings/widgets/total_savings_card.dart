@@ -51,6 +51,7 @@ class TotalSavingsCard extends StatelessWidget {
                   child: Icon(Icons.savings_outlined, color: savingsColor, size: 20),
                 ),
                 const SizedBox(width: 12),
+                // --- UI ENHANCEMENT: Reverted title to reflect cumulative savings ---
                 Text(
                   'Total Savings',
                   style: theme.textTheme.titleMedium?.copyWith(

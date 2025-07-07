@@ -30,36 +30,53 @@ class GoalProgressCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              goal['name'],
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 10,
-                backgroundColor: theme.colorScheme.surface,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(Colors.lightGreen.shade400),
+            // --- UI ENHANCEMENT: Circular Progress Indicator ---
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6,
+                    backgroundColor: theme.colorScheme.surface,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.lightGreen.shade400),
+                  ),
+                  Center(
+                    child: Text(
+                      '${(progress * 100).toStringAsFixed(0)}%',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  )
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('${(progress * 100).toStringAsFixed(1)}%'),
-                Text(
-                    '₹${NumberFormat.decimalPattern().format(allTimeTotalSavings)} of ₹${NumberFormat.decimalPattern().format(targetAmount)}',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-              ],
-            )
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    goal['name'],
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                      'Saved: ₹${NumberFormat.decimalPattern().format(allTimeTotalSavings)}',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 4),
+                   Text(
+                      'Target: ₹${NumberFormat.decimalPattern().format(targetAmount)}',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
           ],
         ),
       ),

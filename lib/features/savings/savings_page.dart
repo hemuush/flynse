@@ -101,7 +101,11 @@ class _SavingsPageState extends State<SavingsPage> {
                 const SizedBox(height: 16),
                 const SavingsByCategoryCard(), // NEW
                 const SizedBox(height: 24),
-                SavingsList(transactions: provider.savingsTransactions),
+                // --- FIX: Pass the correct title and the full transaction list ---
+                SavingsList(
+                  title: 'Savings History',
+                  transactions: provider.savingsTransactions,
+                ),
               ],
             ),
             if (_isCelebrating)

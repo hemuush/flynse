@@ -464,6 +464,7 @@ class _AnalyticsPageState extends State<AnalyticsPage>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
+                        // --- UI ENHANCEMENT: Interactive Donut Chart ---
                         PieChart(
                           PieChartData(
                             sectionsSpace: 4, // Gap between slices
@@ -487,6 +488,7 @@ class _AnalyticsPageState extends State<AnalyticsPage>
                             }).toList(),
                           ),
                         ),
+                        // --- UI ENHANCEMENT: Center text in Donut Chart ---
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

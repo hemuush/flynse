@@ -4,6 +4,7 @@ import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/core/providers/savings_provider.dart';
 import 'package:flynse/features/dashboard/widgets/balance_card.dart';
+import 'package:flynse/features/dashboard/widgets/comparison_card.dart';
 import 'package:flynse/features/dashboard/widgets/monthly_highlights.dart';
 import 'package:flynse/features/dashboard/widgets/period_selector.dart';
 import 'package:flynse/features/dashboard/widgets/recent_transactions_list.dart';
@@ -73,6 +74,13 @@ class _DashboardPageState extends State<DashboardPage>
               _buildAnimatedItem(
                 interval: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
                 child: const BalanceCard(),
+              ),
+              const SizedBox(height: 24),
+
+              // --- NEW: Comparison Card ---
+              _buildAnimatedItem(
+                interval: const Interval(0.3, 0.9, curve: Curves.easeOutCubic),
+                child: const ComparisonCard(),
               ),
               const SizedBox(height: 24),
 

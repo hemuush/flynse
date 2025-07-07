@@ -243,7 +243,7 @@ class DebtRepository {
       'debts',
       where: 'is_user_debtor = ? AND is_closed = ?',
       whereArgs: [isUserDebtor ? 1 : 0, isClosed ? 1 : 0],
-      orderBy: 'creation_date DESC',
+      orderBy: '(total_amount - amount_paid) DESC',
     );
   }
 

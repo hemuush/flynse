@@ -43,61 +43,69 @@ class _BalanceCardState extends State<BalanceCard> {
     final monthName =
         DateFormat.MMMM().format(DateTime(0, appProvider.selectedMonth));
 
+    // --- UI ENHANCEMENT: Gradient Background ---
     return Card(
       elevation: 0,
-      color: theme.colorScheme.surfaceContainer,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24.0),
-        side: BorderSide(
-          color: theme.colorScheme.outline,
-          width: 1,
-        ),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          // Show detailed monthly sheet on tap.
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => const MonthlyDetailsSheet(),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Balance till $monthName',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // --- Net Balance Display ---
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: AnimatedCount(
-                  begin: 0, // Start from 0 or a previous value
-                  end: netBalance,
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: netBalance >= 0
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.error,
-                  ),
-                  decimalDigits: 2,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // --- Bar Chart Visual ---
-              SizedBox(
-                height: 120,
-                child: _buildBarChart(context, income, expense, saving),
-              ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary.withOpacity(0.1),
+              theme.colorScheme.surfaceContainer,
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        ),
+        child: InkWell(
+          onTap: () {
+            // Show detailed monthly sheet on tap.
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const MonthlyDetailsSheet(),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Balance till $monthName',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // --- Net Balance Display ---
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AnimatedCount(
+                    begin: 0, // Start from 0 or a previous value
+                    end: netBalance,
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: netBalance >= 0
+                          ? theme.colorScheme.tertiary
+                          : theme.colorScheme.error,
+                    ),
+                    decimalDigits: 2,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // --- Bar Chart Visual ---
+                SizedBox(
+                  height: 120,
+                  child: _buildBarChart(context, income, expense, saving),
+                ),
+              ],
+            ),
           ),
         ),
       ),

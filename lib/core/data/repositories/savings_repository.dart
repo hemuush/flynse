@@ -54,11 +54,25 @@ class SavingsRepository {
     ''');
   }
 
-  /// Calculates the total current savings amount.
+  /// Calculates the total current savings amount (all-time).
   Future<double> getTotalSavings() async {
     final db = await _database;
     final result = await db.rawQuery(
         "SELECT SUM(amount) as total FROM transactions WHERE type = 'Saving'");
+    if (result.isNotEmpty && result.first['total'] != null) {
+      return (result.first['total'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  /// NEW: Calculates the total savings for a specific month and year.
+  Future<double> getSavingsForPeriod(int year, int month) async {
+    final db = await _database;
+    final String period = '$year-${month.toString().padLeft(2, '0')}';
+    final result = await db.rawQuery(
+      "SELECT SUM(amount) as total FROM transactions WHERE type = 'Saving' AND strftime('%Y-%m', transaction_date) = ?",
+      [period],
+    );
     if (result.isNotEmpty && result.first['total'] != null) {
       return (result.first['total'] as num).toDouble();
     }
@@ -79,12 +93,25 @@ class SavingsRepository {
     return 0.0;
   }
 
-  /// Retrieves all transactions of type 'Saving'.
-  Future<List<Map<String, dynamic>>> getSavingsTransactions() async {
+  /// MODIFIED: Retrieves all transactions of type 'Saving' for a specific period.
+  Future<List<Map<String, dynamic>>> getSavingsTransactionsForPeriod(
+      int year, int month) async {
     final db = await _database;
+    final String period = '$year-${month.toString().padLeft(2, '0')}';
     return db.query('transactions',
-        where: 'type = ?',
-        whereArgs: ['Saving'],
+        where: "type = ? AND strftime('%Y-%m', transaction_date) = ?",
+        whereArgs: ['Saving', period],
+        orderBy: 'transaction_date DESC, id DESC');
+  }
+
+  /// NEW: Retrieves all savings transactions up to a specific period.
+  Future<List<Map<String, dynamic>>> getSavingsTransactionsUpToPeriod(
+      int year, int month) async {
+    final db = await _database;
+    final String period = '$year-${month.toString().padLeft(2, '0')}';
+    return db.query('transactions',
+        where: "type = ? AND strftime('%Y-%m', transaction_date) <= ?",
+        whereArgs: ['Saving', period],
         orderBy: 'transaction_date DESC, id DESC');
   }
 
@@ -105,7 +132,8 @@ class SavingsRepository {
   /// Creates a transaction to reflect using savings for an expense.
   /// This now creates a paired transaction: a negative 'Saving' and a positive 'Income'
   /// to ensure the net balance is calculated correctly on the dashboard.
-  Future<void> useSavings(double amount, String category, [String? description, DateTime? date]) async {
+  Future<void> useSavings(double amount, String category,
+      [String? description, DateTime? date]) async {
     final db = await _database;
     await db.transaction((txn) async {
       final transactionDate = (date ?? DateTime.now()).toIso8601String();
