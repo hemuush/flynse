@@ -412,14 +412,4 @@ class DebtRepository {
     }
     return 0.0;
   }
-
-  Future<int> getActiveDebtCount() async {
-    final db = await _database;
-    final result = await db.rawQuery(
-        "SELECT COUNT(*) as count FROM debts WHERE is_closed = 0 AND is_user_debtor = 1 AND friend_id IS NULL");
-    if (result.isNotEmpty && result.first['count'] != null) {
-      return (result.first['count'] as num).toInt();
-    }
-    return 0;
-  }
 }

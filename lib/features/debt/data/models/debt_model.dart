@@ -1,7 +1,6 @@
 class Debt {
   final int id;
   final String name;
-  final String? description;
   final double principalAmount;
   final double totalAmount;
   final double amountPaid;
@@ -21,7 +20,6 @@ class Debt {
   Debt({
     required this.id,
     required this.name,
-    this.description,
     required this.principalAmount,
     required this.totalAmount,
     required this.amountPaid,
@@ -42,7 +40,6 @@ class Debt {
     return Debt(
       id: map['id'],
       name: map['name'],
-      description: map['description'],
       principalAmount: map['principal_amount'],
       totalAmount: map['total_amount'],
       amountPaid: map['amount_paid'],

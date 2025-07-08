@@ -89,18 +89,4 @@ class CategoryRepository {
       );
     });
   }
-
-  /// Retrieves a list of all transaction types (e.g., 'Income', 'Expense').
-  Future<List<Map<String, dynamic>>> getTransactionTypes(
-      {String? filter}) async {
-    final db = await _database;
-    String? where;
-    List<dynamic>? whereArgs;
-    if (filter != null && filter.isNotEmpty) {
-      where = 'name LIKE ?';
-      whereArgs = ['%$filter%'];
-    }
-    return await db.query('transaction_types',
-        where: where, whereArgs: whereArgs, orderBy: 'name');
-  }
 }

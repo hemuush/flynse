@@ -112,17 +112,9 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE transaction_types (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE
-      )
-    ''');
-
-    await db.execute('''
       CREATE TABLE debts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        description TEXT,
         principal_amount REAL NOT NULL,
         total_amount REAL NOT NULL,
         amount_paid REAL NOT NULL DEFAULT 0,
@@ -169,12 +161,6 @@ class DatabaseHelper {
   /// Populates the database with initial default data.
   Future<void> _populateDefaultData(Database db) async {
     await db.transaction((txn) async {
-      const types = ['Expense', 'Income', 'Saving'];
-      for (final type in types) {
-        await txn.insert('transaction_types', {'name': type},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
-      }
-
       final categories = {
         'Expense': ['Debt Repayment', 'Others', 'Shopping', 'Friends'],
         'Income': ['Loan', 'Friends', 'Friend Repayment', 'From Savings'],

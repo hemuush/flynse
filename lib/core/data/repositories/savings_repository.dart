@@ -65,20 +65,6 @@ class SavingsRepository {
     return 0.0;
   }
 
-  /// NEW: Calculates the total savings for a specific month and year.
-  Future<double> getSavingsForPeriod(int year, int month) async {
-    final db = await _database;
-    final String period = '$year-${month.toString().padLeft(2, '0')}';
-    final result = await db.rawQuery(
-      "SELECT SUM(amount) as total FROM transactions WHERE type = 'Saving' AND strftime('%Y-%m', transaction_date) = ?",
-      [period],
-    );
-    if (result.isNotEmpty && result.first['total'] != null) {
-      return (result.first['total'] as num).toDouble();
-    }
-    return 0.0;
-  }
-
   /// Gets the cumulative total savings up to a given month and year.
   Future<double> getTotalSavingsUpToPeriod(int year, int month) async {
     final db = await _database;
@@ -91,17 +77,6 @@ class SavingsRepository {
       return (result.first['total'] as num).toDouble();
     }
     return 0.0;
-  }
-
-  /// MODIFIED: Retrieves all transactions of type 'Saving' for a specific period.
-  Future<List<Map<String, dynamic>>> getSavingsTransactionsForPeriod(
-      int year, int month) async {
-    final db = await _database;
-    final String period = '$year-${month.toString().padLeft(2, '0')}';
-    return db.query('transactions',
-        where: "type = ? AND strftime('%Y-%m', transaction_date) = ?",
-        whereArgs: ['Saving', period],
-        orderBy: 'transaction_date DESC, id DESC');
   }
 
   /// NEW: Retrieves all savings transactions up to a specific period.

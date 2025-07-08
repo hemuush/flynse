@@ -11,9 +11,6 @@ class DebtProvider with ChangeNotifier {
   double _totalPendingDebt = 0.0;
   double get totalPendingDebt => _totalPendingDebt;
 
-  int _activeDebtCount = 0;
-  int get activeDebtCount => _activeDebtCount;
-
   List<Map<String, dynamic>> _userDebts = [];
   List<Map<String, dynamic>> get userDebts => _userDebts;
 
@@ -38,7 +35,6 @@ class DebtProvider with ChangeNotifier {
         _totalPendingDebt +=
             (debt['total_amount'] as double) - (debt['amount_paid'] as double);
       }
-      _activeDebtCount = _userDebts.length;
 
     } catch (e) {
       log("Error fetching debts data: $e");

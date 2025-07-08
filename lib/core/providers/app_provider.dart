@@ -11,9 +11,6 @@ class AppProvider with ChangeNotifier {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
-  bool _showFab = true;
-  bool get showFab => _showFab;
-
   late int _selectedYear;
   int get selectedYear => _selectedYear;
 
@@ -71,13 +68,6 @@ class AppProvider with ChangeNotifier {
       final newMonths = getAvailableMonthsForYear(year);
       _selectedMonth = newMonths.contains(month) ? month : newMonths.first;
       await refreshAllData();
-    }
-  }
-
-  void setShowFab(bool show) {
-    if (_showFab != show) {
-      _showFab = show;
-      notifyListeners();
     }
   }
 
