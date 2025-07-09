@@ -51,7 +51,7 @@ class SettingsProvider with ChangeNotifier {
     // MODIFICATION: Load seed colors instead of specific background colors
     _seedColorLight = await _loadColor('seed_color_light');
     _seedColorDark = await _loadColor('seed_color_dark');
-    
+
     notifyListeners();
   }
 
@@ -66,15 +66,23 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _setColor(
       String key, Color color, Function(Color) setter) async {
     setter(color);
-    await _settingsRepo.saveSetting(key, color.value.toRadixString(16));
+
+    // Convert normalized double color channels to 8-bit integers
+    final int a = (color.a * 255).round() & 0xff;
+    final int r = (color.r * 255).round() & 0xff;
+    final int g = (color.g * 255).round() & 0xff;
+    final int b = (color.b * 255).round() & 0xff;
+
+    // Compose ARGB integer
+    final int argbValue = (a << 24) | (r << 16) | (g << 8) | b;
+
+    await _settingsRepo.saveSetting(key, argbValue.toRadixString(16));
     notifyListeners();
   }
 
   // MODIFICATION: Renamed method to be more descriptive of its new function
   Future<void> setThemeSeedColor(Color color, bool isDarkMode) async {
-    await _setColor(
-        isDarkMode ? 'seed_color_dark' : 'seed_color_light',
-        color,
+    await _setColor(isDarkMode ? 'seed_color_dark' : 'seed_color_light', color,
         (c) => isDarkMode ? _seedColorDark = c : _seedColorLight = c);
   }
 

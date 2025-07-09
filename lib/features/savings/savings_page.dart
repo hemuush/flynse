@@ -88,8 +88,7 @@ class _SavingsPageState extends State<SavingsPage> {
           alignment: Alignment.topCenter,
           children: [
             ListView(
-              // MODIFICATION: Increased bottom padding to prevent overlap with the navigation bar.
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               children: [
                 const TotalSavingsCard(),
                 const SizedBox(height: 16),

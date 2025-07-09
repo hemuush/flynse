@@ -51,7 +51,7 @@ class SavingsByCategoryCard extends StatelessWidget {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

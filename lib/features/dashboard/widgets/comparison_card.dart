@@ -60,7 +60,7 @@ class ComparisonCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.15),
+                color: iconColor.withAlpha(38),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 24),

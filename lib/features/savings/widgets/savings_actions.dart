@@ -26,6 +26,9 @@ class SavingsActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SavingsProvider>();
+    // FIX: The button should only be enabled if there is a withdrawable balance in at least one category.
+    final bool canUseSavings = provider.savingsByCategory.any((c) => (c['total'] as double? ?? 0.0) > 0);
+
     return Row(
       children: [
         Expanded(
@@ -39,9 +42,8 @@ class SavingsActions extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: OutlinedButton.icon(
-            // --- FIX: Button is now enabled based on all-time savings ---
             onPressed:
-                provider.allTimeTotalSavings > 0 ? () => _showUseSavingsDialog(context) : null,
+                canUseSavings ? () => _showUseSavingsDialog(context) : null,
             icon: const Icon(Icons.north_east),
             label: const Text('Use Savings'),
           ),

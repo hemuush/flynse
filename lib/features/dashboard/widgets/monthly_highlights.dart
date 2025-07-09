@@ -1,3 +1,5 @@
+// lib/features/dashboard/widgets/monthly_highlights.dart
+
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
@@ -97,7 +99,7 @@ class _HighlightCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          // PERMANENT FIX: Use a SingleChildScrollView to prevent overflow.
+          // FIX: Use a SingleChildScrollView to prevent overflow.
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +137,7 @@ class _HighlightCard extends StatelessWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                    maxLines: 2, // Allow for two lines to show more data
                   ),
               ],
             ),

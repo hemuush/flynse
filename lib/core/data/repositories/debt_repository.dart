@@ -268,6 +268,17 @@ class DebtRepository {
     );
   }
 
+  /// NEW: Checks if a friend has any pending (unclosed) debts.
+  Future<bool> hasPendingDebtsForFriend(int friendId) async {
+    final db = await _database;
+    final result = await db.query(
+      'debts',
+      where: 'friend_id = ? AND is_closed = 0',
+      whereArgs: [friendId],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
 
   /// MODIFICATION: This method now recalculates the EMI when loan details are updated.
   Future<void> updateDebtInfo({

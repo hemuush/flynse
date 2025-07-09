@@ -54,7 +54,7 @@ class _BalanceCardState extends State<BalanceCard> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              theme.colorScheme.primary.withOpacity(0.1),
+              theme.colorScheme.primary.withAlpha(26),
               theme.colorScheme.surfaceContainer,
             ],
             begin: Alignment.topLeft,
@@ -226,7 +226,7 @@ class _BalanceCardState extends State<BalanceCard> {
             topLeft: Radius.circular(6),
             topRight: Radius.circular(6),
           ),
-          borderSide: isTouched ? BorderSide(color: color.withOpacity(0.8), width: 2) : const BorderSide(color: Colors.transparent),
+          borderSide: isTouched ? BorderSide(color: color.withAlpha(204), width: 2) : const BorderSide(color: Colors.transparent),
         ),
       ],
     );

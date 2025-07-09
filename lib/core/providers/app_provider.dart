@@ -52,7 +52,8 @@ class AppProvider with ChangeNotifier {
       context
           .read<SavingsProvider>()
           .loadSavingsData(_selectedYear, _selectedMonth),
-      context.read<DebtProvider>().loadDebts(_selectedYear, _selectedMonth),
+      // FIX: Removed parameters from loadDebts call as they are no longer needed.
+      context.read<DebtProvider>().loadDebts(),
       context.read<FriendProvider>().loadFriendsData(), // NEW
       context
           .read<TransactionProvider>()

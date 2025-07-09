@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:flynse/features/debt/data/models/amortization_schedule.dart';
 
@@ -128,13 +129,16 @@ class AmortizationCalculator {
                 try {
                   final interestComponent = (runningBalance * monthlyRate).roundToDouble();
                   if (currentEmi > interestComponent) {
+                    // FIX: Use log explicitly from the dart:math library
                     final logNumerator = log(currentEmi / (currentEmi - interestComponent));
                     final newMonthsRemaining = logNumerator / log(1 + monthlyRate);
                     newCalculatedTenure = monthCounter + 1 + newMonthsRemaining.ceil();
                   } else {
                     newCalculatedTenure = currentTermInMonths;
                   }
-                } catch (_) {
+                } catch (e, s) {
+                  // FIX: Use the developer log with the alias.
+                  developer.log('Error calculating loan tenure', error: e, stackTrace: s);
                   newCalculatedTenure = currentTermInMonths;
                 }
               }

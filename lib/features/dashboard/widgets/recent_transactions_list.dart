@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/routing/app_router.dart';
+import 'package:flynse/features/transaction/add_edit_transaction_page.dart';
 import 'package:flynse/features/transaction/transaction_list_page.dart';
 import 'package:flynse/features/transaction/widgets/transaction_form_models.dart';
-import 'package:intl/intl.dart';
+import 'package:flynse/shared/widgets/transaction_list_item.dart';
 import 'package:provider/provider.dart';
 
 /// A widget that displays a list of the most recent transactions
@@ -22,6 +23,23 @@ class RecentTransactionsList extends StatelessWidget {
       return _buildEmptyState(context);
     }
 
+    void showLockedDialog() {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Action Locked'),
+          content: const Text(
+              'This transaction is linked to a Debt, Saving, or a Friend and must be managed from the corresponding page.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -35,7 +53,6 @@ class RecentTransactionsList extends StatelessWidget {
                   theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             TextButton(
-              // FIX: Corrected navigation to go directly to the TransactionListPage.
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const TransactionListPage()),
@@ -55,7 +72,31 @@ class RecentTransactionsList extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             final transaction = transactions[index];
-            return _TransactionListItem(transaction: transaction);
+            final type = transaction['type'] as String?;
+            final category = transaction['category'] as String?;
+
+            final isLocked = type == 'Saving' ||
+                category == 'Loan' ||
+                category == 'Debt Repayment' ||
+                category == 'Savings Withdrawal' ||
+                category == 'Friends' ||
+                category == 'Friend Repayment';
+
+            return TransactionListItem(
+              transaction: transaction,
+              isLocked: isLocked,
+              onTap: () {
+                if (isLocked) {
+                  showLockedDialog();
+                } else {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => AddEditTransactionPage(
+                      transaction: transaction,
+                    ),
+                  ));
+                }
+              },
+            );
           },
         ),
       ],
@@ -83,7 +124,7 @@ class RecentTransactionsList extends StatelessWidget {
               Icon(
                 Icons.receipt_long_rounded,
                 size: 48,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                color: theme.colorScheme.onSurfaceVariant.withAlpha(128),
               ),
               const SizedBox(height: 16),
               Text(
@@ -119,110 +160,5 @@ class RecentTransactionsList extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// A styled list item for displaying a single transaction.
-/// This is a simplified version of the one in `transaction_list_page.dart`
-/// for consistency in the UI.
-class _TransactionListItem extends StatelessWidget {
-  final Map<String, dynamic> transaction;
-
-  const _TransactionListItem({required this.transaction});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final type = transaction['type'] as String? ?? '';
-    final color = _getColorForType(context, type);
-    final iconData = _getIconForType(type);
-
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
-        side: BorderSide(
-          color: theme.colorScheme.outline,
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            // --- Icon ---
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(iconData, color: color, size: 24),
-            ),
-            const SizedBox(width: 12),
-            // --- Title and Subtitle ---
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction['description'],
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  if (transaction['category'] != null)
-                    Text(
-                      transaction['category'],
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            // --- Amount ---
-            Text(
-              '₹${NumberFormat.decimalPattern('en_IN').format(transaction['amount'])}',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper methods to determine the icon and color based on transaction type.
-  IconData _getIconForType(String type) {
-    switch (type) {
-      case 'Income':
-        return Icons.arrow_downward_rounded;
-      case 'Saving':
-        return Icons.savings_rounded;
-      case 'Expense':
-        return Icons.arrow_upward_rounded;
-      default:
-        return Icons.circle_outlined;
-    }
-  }
-
-  Color _getColorForType(BuildContext context, String type) {
-    final theme = Theme.of(context);
-    switch (type) {
-      case 'Income':
-        return theme.colorScheme.tertiary;
-      case 'Saving':
-        return Colors.lightGreen.shade500;
-      case 'Expense':
-        return theme.colorScheme.secondary;
-      default:
-        return theme.colorScheme.onSurface;
-    }
   }
 }

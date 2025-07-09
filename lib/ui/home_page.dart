@@ -1,5 +1,6 @@
+// lib/ui/home_page.dart
+
 import 'dart:convert';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flynse/core/data/repositories/settings_repository.dart';
@@ -28,8 +29,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  // The page index is derived from the selected index, skipping the FAB.
-  int get _pageIndex => _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex;
 
   DateTime? _lastPressedAt;
 
@@ -43,7 +42,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     // Allows other parts of the app to trigger tab navigation.
     context.read<AppProvider>().setNavigateToTab((int index) {
       if (mounted) {
-        _onItemTapped(index > 2 ? index + 1 : index);
+        _onItemTapped(index);
       }
     });
 
@@ -111,12 +110,13 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
-  // The main pages for the IndexedStack. History page is now separate.
+  // The main pages for the IndexedStack.
   final List<Widget> _mainPages = [
     const DashboardPage(),
     const SavingsPage(),
     const DebtPage(),
     const FriendsPage(),
+    const TransactionListPage(), // Added History Page
   ];
 
   // Titles for the app bar corresponding to the pages.
@@ -125,16 +125,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     'Savings',
     'Debts',
     'Friends',
+    'History', // Added History Title
   ];
 
   // Handles taps on the bottom navigation bar items.
   void _onItemTapped(int index) {
     HapticFeedback.lightImpact();
-    // The center button (index 2) is the FAB.
-    if (index == 2) {
-      _onFabPressed();
-      return;
-    }
     setState(() {
       _selectedIndex = index;
     });
@@ -152,10 +148,11 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     String routeName;
     Object? arguments;
 
-    final pageIndexForAction = _pageIndex;
+    final pageIndexForAction = _selectedIndex;
 
     switch (pageIndexForAction) {
       case 0: // Dashboard
+      case 4: // History
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs();
         break;
@@ -185,7 +182,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
     // Determines the starting color for the background gradient.
     Color getStartColor() {
-      if (_pageIndex == 0) {
+      if (_selectedIndex == 0) {
         return theme.colorScheme.surfaceContainer;
       }
       return theme.scaffoldBackgroundColor;
@@ -198,20 +195,20 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
     // Determines the title text for the app bar.
     String titleText;
-    if (_pageIndex == 0) {
+    if (_selectedIndex == 0) {
       final firstName = settingsProvider.userName.split(' ').first;
       titleText = 'Hi, ${firstName.isNotEmpty ? firstName : 'There'}';
     } else {
-      titleText = _pageTitles[_pageIndex];
+      titleText = _pageTitles[_selectedIndex];
     }
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (bool didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
 
         final navigator = Navigator.of(context);
-        if (_pageIndex != 0) {
+        if (_selectedIndex != 0) {
           _onItemTapped(0);
         } else {
           final now = DateTime.now();
@@ -246,6 +243,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           extendBody: true,
           backgroundColor: Colors.transparent,
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: Text(
@@ -254,15 +252,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             actions: [
-              // --- MODIFICATION: Added History Button ---
-              IconButton(
-                icon: const Icon(Icons.history_rounded),
-                onPressed: () {
-                  Navigator.of(context)
-                      .push(MaterialPageRoute(builder: (_) => const TransactionListPage()));
-                },
-                tooltip: 'Transaction History',
-              ),
+              // Yearly details button
               IconButton(
                 icon: const Icon(Icons.assessment_outlined),
                 onPressed: () async {
@@ -282,31 +272,32 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                 },
                 tooltip: 'Yearly Details',
               ),
+              // Profile/Settings Icon
               Padding(
-                padding:
-                    const EdgeInsets.only(right: 8.0, top: 4.0, bottom: 4.0),
+                padding: const EdgeInsets.only(right: 16.0, left: 8.0),
                 child: GestureDetector(
                   onTap: _navigateToSettings,
                   child: CircleAvatar(
-                    radius: 22,
+                    radius: 20,
                     backgroundColor: theme.colorScheme.surfaceContainerHighest,
                     backgroundImage:
                         settingsProvider.profileImageBase64 != null &&
                                 settingsProvider.profileImageBase64!.isNotEmpty
                             ? MemoryImage(
-                                base64Decode(settingsProvider.profileImageBase64!))
+                                base64Decode(
+                                    settingsProvider.profileImageBase64!))
                             : null,
                     child: (settingsProvider.profileImageBase64 == null ||
                             settingsProvider.profileImageBase64!.isEmpty)
                         ? (settingsProvider.userName.isNotEmpty
                             ? Text(
                                 settingsProvider.userName[0].toUpperCase(),
-                                style: theme.textTheme.titleLarge?.copyWith(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                     color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.bold),
                               )
                             : Icon(Icons.person_outline_rounded,
-                                size: 26, color: theme.colorScheme.primary))
+                                size: 24, color: theme.colorScheme.primary))
                         : null,
                   ),
                 ),
@@ -314,90 +305,54 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             ],
           ),
           body: IndexedStack(
-            index: _pageIndex,
+            index: _selectedIndex,
             children: _mainPages,
           ),
-          // --- MODIFICATION: Updated Bottom Navigation Bar ---
-          bottomNavigationBar: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: theme.colorScheme.outline.withAlpha((255 * 0.3).round()),
-                  width: 1.5,
-                ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _onFabPressed,
+            child: const Icon(Icons.add),
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            backgroundColor: theme.colorScheme.surfaceContainer,
+            type: BottomNavigationBarType.fixed,
+            elevation: 8.0,
+            showSelectedLabels: true,
+            showUnselectedLabels: true,
+            selectedItemColor: theme.colorScheme.primary,
+            unselectedItemColor: theme.colorScheme.onSurfaceVariant,
+            selectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard_outlined),
+                activeIcon: Icon(Icons.dashboard_rounded),
+                label: 'Overview',
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: BottomNavigationBar(
-                    currentIndex: _selectedIndex,
-                    onTap: _onItemTapped,
-                    backgroundColor:
-                        theme.colorScheme.surfaceContainer.withAlpha(180),
-                    type: BottomNavigationBarType.fixed,
-                    showSelectedLabels: true,
-                    showUnselectedLabels: true,
-                    selectedItemColor: theme.colorScheme.primary,
-                    unselectedItemColor: theme.colorScheme.onSurfaceVariant,
-                    elevation: 0,
-                    iconSize: 22,
-                    selectedFontSize: 12,
-                    unselectedFontSize: 12,
-                    items: [
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.dashboard_outlined),
-                        activeIcon: Icon(Icons.dashboard_rounded),
-                        label: 'Overview',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.savings_outlined),
-                        activeIcon: Icon(Icons.savings_rounded),
-                        label: 'Savings',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                theme.colorScheme.primary,
-                                Color.lerp(theme.colorScheme.primary, theme.colorScheme.secondary, 0.4)!
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withAlpha((255 * 0.4).round()),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4)
-                              )
-                            ]
-                          ),
-                          padding: const EdgeInsets.all(14),
-                          child:
-                              Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 24),
-                        ),
-                        label: '',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.receipt_long_outlined),
-                        activeIcon: Icon(Icons.receipt_long_rounded),
-                        label: 'Debts',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.people_outline_rounded),
-                        activeIcon: Icon(Icons.people_rounded),
-                        label: 'Friends',
-                      ),
-                    ],
-                  ),
-                ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.savings_outlined),
+                activeIcon: Icon(Icons.savings_rounded),
+                label: 'Savings',
               ),
-            ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.receipt_long_outlined),
+                activeIcon: Icon(Icons.receipt_long_rounded),
+                label: 'Debts',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.people_outline_rounded),
+                activeIcon: Icon(Icons.people_rounded),
+                label: 'Friends',
+              ),
+              BottomNavigationBarItem(
+                // Added History Item
+                icon: Icon(Icons.history_outlined),
+                activeIcon: Icon(Icons.history_rounded),
+                label: 'History',
+              ),
+            ],
           ),
         ),
       ),

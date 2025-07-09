@@ -204,12 +204,10 @@ class _DebtCardState extends State<DebtCard> {
     final nf =
         NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
-    // --- FIX: Determine the correct navigation action for the history button ---
     final friendId = widget.debt['friend_id'] as int?;
     VoidCallback onViewHistoryPressed;
 
     if (friendId != null) {
-      // If the debt is linked to a friend, navigate to the full friend history page.
       onViewHistoryPressed = () {
         Navigator.of(context).push(MaterialPageRoute(
           builder: (context) => FriendHistoryPage(
@@ -219,7 +217,6 @@ class _DebtCardState extends State<DebtCard> {
         ));
       };
     } else {
-      // Otherwise, navigate to the standard repayment history page.
       onViewHistoryPressed = () {
         Navigator.of(context).push(MaterialPageRoute(
           builder: (context) => RepaymentHistoryPage(debt: widget.debt),
@@ -228,7 +225,6 @@ class _DebtCardState extends State<DebtCard> {
     }
 
     if (isUserDebtor) {
-      // --- View for User's Own Complex Debts ---
       final principal = widget.debt['principal_amount'] as double;
       final totalAmount = widget.debt['total_amount'] as double;
       final interestAdded = totalAmount - principal;
@@ -252,7 +248,7 @@ class _DebtCardState extends State<DebtCard> {
               TextButton.icon(
                 icon: const Icon(Icons.history_rounded, size: 18),
                 label: const Text('View History'),
-                onPressed: onViewHistoryPressed, // Use the corrected callback
+                onPressed: onViewHistoryPressed,
               ),
               Row(
                 children: [
@@ -270,7 +266,6 @@ class _DebtCardState extends State<DebtCard> {
         ],
       );
     } else {
-      // --- Simpler View for Loans Owed to User by Friends ---
       final totalAmount = widget.debt['total_amount'] as double;
       final amountReceived = widget.debt['amount_paid'] as double;
       final remainingAmount = totalAmount - amountReceived;
@@ -288,7 +283,7 @@ class _DebtCardState extends State<DebtCard> {
               TextButton.icon(
                 icon: const Icon(Icons.history_rounded, size: 18),
                 label: const Text('View History'),
-                onPressed: onViewHistoryPressed, // Use the corrected callback
+                onPressed: onViewHistoryPressed,
               ),
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.add_card_rounded, size: 18),
@@ -551,8 +546,7 @@ class _DebtCardState extends State<DebtCard> {
     final loanStartPeriod = DateTime(loanStartDate.year, loanStartDate.month);
     final isLoanActiveInSelectedPeriod = !selectedPeriodDate.isBefore(loanStartPeriod);
 
-    // --- FIX: Removed the fallback calculation ---
-    // The EMI value is now trusted to be correct in the database.
+    // FIX: The EMI value is now trusted to be correct in the database.
     // If it's null, it defaults to 0.0.
     final double currentEmi = (latestDebt['current_emi'] as double?) ?? 0.0;
     final totalAmount = latestDebt['total_amount'] as double;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flynse/core/data/repositories/friend_repository.dart';
+import 'package:flynse/core/data/repositories/transaction_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/transaction_provider.dart';
 import 'package:flynse/shared/utils/utils.dart';
@@ -21,7 +21,7 @@ class FriendHistoryPage extends StatefulWidget {
 }
 
 class _FriendHistoryPageState extends State<FriendHistoryPage> {
-  final FriendRepository _friendRepo = FriendRepository();
+  final TransactionRepository _transactionRepo = TransactionRepository();
   late Future<List<Map<String, dynamic>>> _historyFuture;
 
   @override
@@ -32,15 +32,20 @@ class _FriendHistoryPageState extends State<FriendHistoryPage> {
 
   void _loadHistory() {
     setState(() {
-      _historyFuture = _friendRepo.getFriendTransactionHistory(widget.friendId);
+      _historyFuture = _transactionRepo.getFriendTransactionHistory(widget.friendId);
     });
   }
 
   Future<void> _deleteTransaction(int transactionId) async {
-    await context.read<TransactionProvider>().deleteTransaction(transactionId);
-    await context.read<AppProvider>().refreshAllData();
+    final transactionProvider = context.read<TransactionProvider>();
+    final appProvider = context.read<AppProvider>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    await transactionProvider.deleteTransaction(transactionId);
+    await appProvider.refreshAllData();
+    
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Transaction deleted successfully')),
       );
       _loadHistory(); // Refresh the list

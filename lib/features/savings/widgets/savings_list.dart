@@ -18,13 +18,19 @@ class SavingsList extends StatelessWidget {
   });
 
   Future<void> _deleteSavingTransaction(BuildContext context, int id) async {
-    await context.read<TransactionProvider>().deleteTransaction(id);
-    await context.read<AppProvider>().refreshAllData();
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saving transaction deleted')),
-      );
-    }
+    // CORRECTED: Store context-dependent objects before the async gap.
+    final messenger = ScaffoldMessenger.of(context);
+    final appProvider = context.read<AppProvider>();
+    final transactionProvider = context.read<TransactionProvider>();
+
+    await transactionProvider.deleteTransaction(id);
+    await appProvider.refreshAllData();
+
+    // CORRECTED: Guard the use of the stored messenger with a mounted check.
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Saving transaction deleted')),
+    );
   }
 
   @override
@@ -42,8 +48,8 @@ class SavingsList extends StatelessWidget {
           // --- FIX: Use the title property ---
           child: Text(
             title,
-            style:
-                theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
         ..._buildTransactionList(context, transactions, theme),
@@ -77,52 +83,53 @@ class SavingsList extends StatelessWidget {
       );
 
       final Widget dismissibleItem = Dismissible(
-              key: ValueKey(transaction['id']),
-              direction: DismissDirection.endToStart,
-              confirmDismiss: (direction) async {
-                return await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Confirm Deletion'),
-                    content: Text('Are you sure you want to delete the saving entry: "${transaction['description']}"?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: TextButton.styleFrom(
-                            foregroundColor: Theme.of(context).colorScheme.error),
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                ) ?? false;
-              },
-              onDismissed: (direction) {
-                _deleteSavingTransaction(context, transaction['id']);
-              },
-              background: Container(
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(16),
+        key: ValueKey(transaction['id']),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (direction) async {
+          return await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Confirm Deletion'),
+                  content: Text(
+                      'Are you sure you want to delete the saving entry: "${transaction['description']}"?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error),
+                      child: const Text('Delete'),
+                    ),
+                  ],
                 ),
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: const Icon(Icons.delete, color: Colors.white),
-              ),
-              child: transactionItem,
-            );
+              ) ??
+              false;
+        },
+        onDismissed: (direction) {
+          _deleteSavingTransaction(context, transaction['id']);
+        },
+        background: Container(
+          decoration: BoxDecoration(
+            color: Colors.redAccent,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: const Icon(Icons.delete, color: Colors.white),
+        ),
+        child: transactionItem,
+      );
 
       if (showDateHeader) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.only(top: 16.0, left: 8.0, bottom: 8.0),
+              padding: const EdgeInsets.only(top: 16.0, left: 8.0, bottom: 8.0),
               child: Text(
                 formatDateHeader(transactionDate),
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -194,8 +201,11 @@ class _SavingsListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = isUsedSavings ? theme.colorScheme.secondary : Colors.lightGreen.shade500;
-    final iconData = isUsedSavings ? Icons.north_east_rounded : Icons.savings_outlined;
+    final color = isUsedSavings
+        ? theme.colorScheme.secondary
+        : Colors.lightGreen.shade500;
+    final iconData =
+        isUsedSavings ? Icons.north_east_rounded : Icons.savings_outlined;
     final amount = (transaction['amount'] as num).abs();
 
     return Card(
@@ -222,7 +232,8 @@ class _SavingsListItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   transaction['description'],
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 12),

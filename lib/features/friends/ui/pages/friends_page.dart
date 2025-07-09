@@ -19,7 +19,7 @@ class FriendsPage extends StatelessWidget {
         final hasOwedByUser = provider.debtsToFriends.isNotEmpty;
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 140.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
           children: [
             // Summary Cards
             Row(

@@ -197,6 +197,18 @@ class TransactionRepository {
     return await db.rawQuery(sql, whereArgs);
   }
 
+  /// NEW: Retrieves the complete transaction history with a specific friend.
+  Future<List<Map<String, dynamic>>> getFriendTransactionHistory(int friendId) async {
+    final db = await _database;
+    // This query now correctly joins all transactions linked via friend_id OR a debt linked to the friend_id
+    return db.query(
+      'transactions',
+      where: 'friend_id = ? OR debt_id IN (SELECT id FROM debts WHERE friend_id = ?)',
+      whereArgs: [friendId, friendId],
+      orderBy: 'transaction_date DESC',
+    );
+  }
+
   /// Deletes all transactions for a specific month and year, ensuring data integrity.
   Future<void> deleteTransactionsForMonth(int year, int month) async {
     final db = await _database;

@@ -45,7 +45,7 @@ class TotalSavingsCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: savingsColor.withOpacity(0.15),
+                    color: savingsColor.withAlpha(38),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.savings_outlined, color: savingsColor, size: 20),

@@ -59,7 +59,7 @@ class DebtListView extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 140.0),
+      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
       children: [
         TotalDebtCard(
           title: isUserDebtor ? 'Total You Owe' : 'Total Owed to You',

@@ -65,7 +65,8 @@ class _DashboardPageState extends State<DashboardPage>
         return RefreshIndicator(
           onRefresh: () => context.read<AppProvider>().refreshAllData(),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100)
+,
             children: [
               // --- Header for selecting the month and year ---
               const PeriodSelector(),

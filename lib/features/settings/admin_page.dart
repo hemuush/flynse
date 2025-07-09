@@ -360,16 +360,18 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
   }
 
   // --- NEW METHOD: Shows a dialog to move the sub-category ---
-  Future<void> _showMoveSubCategoryDialog(Map<String, dynamic> subCategory) async {
+  Future<void> _showMoveSubCategoryDialog(
+      Map<String, dynamic> subCategory) async {
     final List<Map<String, dynamic>> allExpenseCategories =
         await _categoryRepo.getCategories('Expense');
-    
+
     final List<Map<String, dynamic>> availableCategories =
         allExpenseCategories.where((cat) {
-            final isTappable = !_AdminPageState._nonTappableCategories.contains(cat['name']);
-            final isNotCurrent = cat['id'] != widget.categoryId;
-            return isTappable && isNotCurrent;
-        }).toList();
+      final isTappable =
+          !_AdminPageState._nonTappableCategories.contains(cat['name']);
+      final isNotCurrent = cat['id'] != widget.categoryId;
+      return isTappable && isNotCurrent;
+    }).toList();
 
     if (availableCategories.isEmpty) {
       if (mounted) {
@@ -379,7 +381,7 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       }
       return;
     }
-
+    if (!mounted) return;
     final selectedCategory = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) {

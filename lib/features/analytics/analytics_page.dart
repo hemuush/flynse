@@ -213,7 +213,7 @@ class _AnalyticsPageState extends State<AnalyticsPage>
                 const SizedBox(height: 8),
               ],
             );
-          }).toList(),
+          }),
         ],
       ),
     );

@@ -46,7 +46,7 @@ class TotalDebtCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withAlpha(38),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, color: color, size: 24),
@@ -69,7 +69,7 @@ class TotalDebtCard extends StatelessWidget {
                           '$debtCount Active',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant
-                                .withOpacity(0.7),
+                                .withAlpha(179),
                           ),
                         )
                       ]

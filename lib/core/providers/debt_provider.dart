@@ -18,7 +18,8 @@ class DebtProvider with ChangeNotifier {
   List<Map<String, dynamic>> get completedUserDebts => _completedUserDebts;
 
   /// MODIFIED: Fetches only non-friend related debt data.
-  Future<void> loadDebts(int year, int month) async {
+  /// FIX: Removed unused year and month parameters.
+  Future<void> loadDebts() async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -75,6 +76,8 @@ class DebtProvider with ChangeNotifier {
       newInterestRate: newInterestRate,
       newTermYears: newTermYears,
     );
+    // FIX: Refresh the provider's state after the update.
+    await loadDebts();
   }
 
   Future<void> deleteDebt(int debtId) async {

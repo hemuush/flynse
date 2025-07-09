@@ -118,7 +118,7 @@ class _SettingsPageState extends State<SettingsPage>
                   if (value != null) {
                     await settingsProvider.setSalaryCycle(value);
                     appProvider.onSettingsChanged();
-                    if (mounted) Navigator.of(context).pop();
+                    if (context.mounted) Navigator.of(context).pop();
                   }
                 },
               ),
@@ -132,13 +132,13 @@ class _SettingsPageState extends State<SettingsPage>
                   if (value != null) {
                     await settingsProvider.setSalaryCycle(value);
                     appProvider.onSettingsChanged();
-                    if (mounted) Navigator.of(context).pop();
+                    if (context.mounted) Navigator.of(context).pop();
                   }
                 },
               ),
             ],
           ),
-           actions: [
+            actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),

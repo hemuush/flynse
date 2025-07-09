@@ -57,7 +57,7 @@ class DarkTheme {
         fillColor: colorScheme.surfaceContainer,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+        hintStyle: TextStyle(color: colorScheme.onSurface.withAlpha(128)),
         floatingLabelStyle: TextStyle(
           color: colorScheme.primary,
           fontWeight: FontWeight.bold,

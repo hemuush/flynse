@@ -24,8 +24,18 @@ class TransactionListPageState extends State<TransactionListPage> {
   late String _viewMode;
 
   final List<String> _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June', 'July',
-    'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
   ];
 
   @override
@@ -54,7 +64,7 @@ class TransactionListPageState extends State<TransactionListPage> {
     _debounce?.cancel();
     super.dispose();
   }
-  
+
   void _updateTransactions() {
     final provider = context.read<TransactionProvider>();
     provider.setTransactionFilters(
@@ -75,13 +85,17 @@ class TransactionListPageState extends State<TransactionListPage> {
   }
 
   Future<void> _deleteTransaction(int id) async {
-    await context.read<TransactionProvider>().deleteTransaction(id);
-    await context.read<AppProvider>().refreshAllData();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transaction deleted')),
-      );
-    }
+    final transactionProvider = context.read<TransactionProvider>();
+    final appProvider = context.read<AppProvider>();
+
+    await transactionProvider.deleteTransaction(id);
+    await appProvider.refreshAllData();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Transaction deleted')),
+    );
   }
 
   void _showLockedDialog() {
@@ -122,13 +136,12 @@ class TransactionListPageState extends State<TransactionListPage> {
             _selectedMonth = month;
           });
           provider.setTransactionFilters(
-            year: year,
-            month: month,
-            type: type,
-            sortBy: sortBy,
-            sortAscending: ascending,
-            viewMode: viewMode
-          );
+              year: year,
+              month: month,
+              type: type,
+              sortBy: sortBy,
+              sortAscending: ascending,
+              viewMode: viewMode);
         },
       ),
     );
@@ -160,134 +173,135 @@ class TransactionListPageState extends State<TransactionListPage> {
   }
 
   Widget _buildTransactionList(TransactionProvider provider) {
-     return ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 140.0),
-        itemCount: provider.filteredTransactions.length,
-        itemBuilder: (context, index) {
-          final transaction = provider.filteredTransactions[index];
-          final transactionDate =
-              DateTime.parse(transaction['transaction_date']);
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 100.0),
+      itemCount: provider.filteredTransactions.length,
+      itemBuilder: (context, index) {
+        final transaction = provider.filteredTransactions[index];
+        final transactionDate = DateTime.parse(transaction['transaction_date']);
 
-          bool showDateHeader;
-          String headerText;
+        bool showDateHeader;
+        String headerText;
 
-          if (_viewMode == 'Yearly') {
-            final bool isFirstOfMonth = (index == 0) ||
-                (transactionDate.month !=
-                    DateTime.parse(provider
-                            .filteredTransactions[index - 1]['transaction_date'])
-                        .month);
-            showDateHeader = isFirstOfMonth;
-            headerText = DateFormat.yMMMM().format(transactionDate);
-          } else {
-             showDateHeader = (index == 0) ||
-                !isSameDay(
-                    transactionDate,
-                    DateTime.parse(provider
-                        .filteredTransactions[index - 1]['transaction_date']));
-            headerText = formatDateHeader(transactionDate);
-          }
+        if (_viewMode == 'Yearly') {
+          final bool isFirstOfMonth = (index == 0) ||
+              (transactionDate.month !=
+                  DateTime.parse(provider.filteredTransactions[index - 1]
+                          ['transaction_date'])
+                      .month);
+          showDateHeader = isFirstOfMonth;
+          headerText = DateFormat.yMMMM().format(transactionDate);
+        } else {
+          showDateHeader = (index == 0) ||
+              !isSameDay(
+                  transactionDate,
+                  DateTime.parse(provider.filteredTransactions[index - 1]
+                      ['transaction_date']));
+          headerText = formatDateHeader(transactionDate);
+        }
 
-          final type = transaction['type'] as String?;
-          final category = transaction['category'] as String?;
-          
-          final isLocked = type == 'Saving' ||
-              category == 'Loan' ||
-              category == 'Debt Repayment' ||
-              category == 'Savings Withdrawal' ||
-              category == 'Friends' ||
-              category == 'Friend Repayment';
-          
-          final transactionItem = _TransactionListItem(
-            transaction: transaction,
-            isLocked: isLocked,
-            onTap: () {
-              if (isLocked) {
-                _showLockedDialog();
-              } else {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => AddEditTransactionPage(
-                    transaction: transaction,
-                  ),
-                ));
-              }
-            },
-          );
+        final type = transaction['type'] as String?;
+        final category = transaction['category'] as String?;
 
-          final Widget dismissibleItem = isLocked ? transactionItem : Dismissible(
-            key: ValueKey(transaction['id']),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (direction) async {
-              return await showDialog<bool>(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text("Confirm Deletion"),
-                    content: Text("Are you sure you want to delete this transaction: \"${transaction['description']}\"?"),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text("Cancel"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.error
-                        ),
-                        child: const Text("Delete"),
-                      ),
-                    ],
-                  );
-                },
-              ) ?? false;
-            },
-            onDismissed: (direction) {
-              _deleteTransaction(transaction['id']);
-            },
-            background: Container(
-              decoration: BoxDecoration(
-                color: Colors.redAccent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              alignment: Alignment.centerRight,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20.0),
-              child: const Icon(Icons.delete, color: Colors.white),
-            ),
-            child: transactionItem,
-          );
+        final isLocked = type == 'Saving' ||
+            category == 'Loan' ||
+            category == 'Debt Repayment' ||
+            category == 'Savings Withdrawal' ||
+            category == 'Friends' ||
+            category == 'Friend Repayment';
 
-          if (showDateHeader) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(
-                      top: 16.0, left: 8.0, bottom: 8.0),
-                  child: Text(
-                    headerText,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.color
-                              ?.withAlpha(179),
-                        ),
-                   ),
+        final transactionItem = _TransactionListItem(
+          transaction: transaction,
+          isLocked: isLocked,
+          onTap: () {
+            if (isLocked) {
+              _showLockedDialog();
+            } else {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => AddEditTransactionPage(
+                  transaction: transaction,
                 ),
-                dismissibleItem,
-              ],
-            );
-          } else {
-            return dismissibleItem;
-          }
-        },
-      );
+              ));
+            }
+          },
+        );
+
+        final Widget dismissibleItem = isLocked
+            ? transactionItem
+            : Dismissible(
+                key: ValueKey(transaction['id']),
+                direction: DismissDirection.endToStart,
+                confirmDismiss: (direction) async {
+                  return await showDialog<bool>(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text("Confirm Deletion"),
+                            content: Text(
+                                "Are you sure you want to delete this transaction: \"${transaction['description']}\"?"),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text("Cancel"),
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                style: TextButton.styleFrom(
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.error),
+                                child: const Text("Delete"),
+                              ),
+                            ],
+                          );
+                        },
+                      ) ??
+                      false;
+                },
+                onDismissed: (direction) {
+                  _deleteTransaction(transaction['id']);
+                },
+                background: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                child: transactionItem,
+              );
+
+        if (showDateHeader) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.only(top: 16.0, left: 8.0, bottom: 8.0),
+                child: Text(
+                  headerText,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withAlpha(179),
+                      ),
+                ),
+              ),
+              dismissibleItem,
+            ],
+          );
+        } else {
+          return dismissibleItem;
+        }
+      },
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -297,16 +311,17 @@ class TransactionListPageState extends State<TransactionListPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off_rounded, size: 80, color: Colors.grey.shade400),
+            Icon(Icons.search_off_rounded,
+                size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text(
               'No Transactions Found',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-             const SizedBox(height: 8),
-             Text(
-              'Try adjusting your filters or search for something else.', 
+            const SizedBox(height: 8),
+            Text(
+              'Try adjusting your filters or search for something else.',
               style: TextStyle(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             )
@@ -320,17 +335,18 @@ class TransactionListPageState extends State<TransactionListPage> {
   Widget _buildHeader() {
     final theme = Theme.of(context);
     String periodText = _viewMode == 'Monthly'
-      ? 'Showing: ${_monthNames[_selectedMonth - 1]} $_selectedYear'
-      : 'Showing: Year $_selectedYear';
+        ? 'Showing: ${_monthNames[_selectedMonth - 1]} $_selectedYear'
+        : 'Showing: Year $_selectedYear';
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-           Text(
-              periodText,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
+          Text(
+            periodText,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -347,22 +363,21 @@ class TransactionListPageState extends State<TransactionListPage> {
                       prefixIcon: const Icon(Icons.search),
                       border: InputBorder.none,
                       filled: false,
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14, horizontal: 20),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                icon: const Icon(Icons.filter_list_rounded),
-                onPressed: _showFilterSortSheet,
-                tooltip: 'Filter & Sort',
-                style: IconButton.styleFrom(
-                  shape: const CircleBorder(),
-                  padding: const EdgeInsets.all(12),
-                )
-              ),
+                  icon: const Icon(Icons.filter_list_rounded),
+                  onPressed: _showFilterSortSheet,
+                  tooltip: 'Filter & Sort',
+                  style: IconButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(12),
+                  )),
             ],
           ),
         ],
@@ -395,7 +410,7 @@ class _TransactionListItem extends StatelessWidget {
         transaction['sub_category'].isNotEmpty) {
       subtitle = '$subtitle (${transaction['sub_category']})';
     }
-    
+
     return Card(
       elevation: 0,
       color: theme.colorScheme.surfaceContainer,
@@ -423,14 +438,16 @@ class _TransactionListItem extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withAlpha(178),
+                        color:
+                            theme.colorScheme.onSurfaceVariant.withAlpha(178),
                       ),
                     ),
                   ],
@@ -450,7 +467,10 @@ class _TransactionListItem extends StatelessWidget {
                   ),
                   if (isLocked) ...[
                     const SizedBox(height: 4),
-                    Icon(Icons.lock, size: 14, color: theme.colorScheme.onSurfaceVariant.withAlpha(128)),
+                    Icon(Icons.lock,
+                        size: 14,
+                        color:
+                            theme.colorScheme.onSurfaceVariant.withAlpha(128)),
                   ]
                 ],
               ),
@@ -512,10 +532,20 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
   late String _selectedViewMode;
   late int _selectedYear;
   late int _selectedMonth;
-  
+
   final List<String> _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June', 'July',
-    'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
   ];
 
   @override
@@ -538,161 +568,180 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20))
-      ),
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
       child: SingleChildScrollView(
         child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
                     color: theme.dividerColor,
-                    borderRadius: BorderRadius.circular(2)
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // --- PERIOD AND VIEW SELECTION ---
+            Text('View Options', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            SegmentedButton<String>(
+              segments: const <ButtonSegment<String>>[
+                ButtonSegment<String>(
+                    value: 'Monthly',
+                    label: Text('Monthly'),
+                    icon: Icon(Icons.calendar_month_outlined)),
+                ButtonSegment<String>(
+                    value: 'Yearly',
+                    label: Text('Yearly'),
+                    icon: Icon(Icons.calendar_today_outlined)),
+              ],
+              selected: {_selectedViewMode},
+              onSelectionChanged: (Set<String> newSelection) {
+                setState(() {
+                  _selectedViewMode = newSelection.first;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedYear,
+                    items: appProvider.availableYears
+                        .map((year) => DropdownMenuItem(
+                            value: year, child: Text(year.toString())))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedYear = value;
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                        labelText: 'Year',
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // --- PERIOD AND VIEW SELECTION ---
-              Text('View Options', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[
-                  ButtonSegment<String>(value: 'Monthly', label: Text('Monthly'), icon: Icon(Icons.calendar_month_outlined)),
-                  ButtonSegment<String>(value: 'Yearly', label: Text('Yearly'), icon: Icon(Icons.calendar_today_outlined)),
-                ],
-                selected: {_selectedViewMode},
-                onSelectionChanged: (Set<String> newSelection) {
-                  setState(() {
-                    _selectedViewMode = newSelection.first;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
+                if (_selectedViewMode == 'Monthly') ...[
+                  const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _selectedYear,
-                      items: appProvider.availableYears.map((year) => DropdownMenuItem(value: year, child: Text(year.toString()))).toList(),
+                      value: _selectedMonth,
+                      items: appProvider
+                          .getAvailableMonthsForYear(_selectedYear)
+                          .map((month) => DropdownMenuItem(
+                              value: month,
+                              child: Text(_monthNames[month - 1])))
+                          .toList(),
                       onChanged: (value) {
                         if (value != null) {
                           setState(() {
-                            _selectedYear = value;
+                            _selectedMonth = value;
                           });
                         }
                       },
-                      decoration: const InputDecoration(labelText: 'Year', contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                      decoration: const InputDecoration(
+                          labelText: 'Month',
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12)),
                     ),
                   ),
-                  if (_selectedViewMode == 'Monthly') ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        value: _selectedMonth,
-                        items: appProvider.getAvailableMonthsForYear(_selectedYear).map((month) => DropdownMenuItem(value: month, child: Text(_monthNames[month - 1]))).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedMonth = value;
-                            });
-                          }
-                        },
-                        decoration: const InputDecoration(labelText: 'Month', contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-                      ),
-                    ),
-                  ]
-                ],
-              ),
-              
-              const Divider(height: 32),
-              
-              // --- FILTER BY TYPE ---
-              Text('Filter by Type', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: ['All', 'Income', 'Expense', 'Saving'].map((type) {
-                  return _buildStyledChip(
-                    context: context,
-                    label: type,
-                    isSelected: _selectedType == type,
-                    onTap: () => setState(() => _selectedType = type),
-                  );
-                }).toList(),
-              ),
+                ]
+              ],
+            ),
 
-              const Divider(height: 32),
-              
-              // --- SORT OPTIONS ---
-              Text('Sort by', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              _buildSortOption(
-                context: context,
-                label: 'Date',
-                value: 'date',
-                groupValue: _sortBy,
-                onChanged: (value) => setState(() => _sortBy = value!),
-              ),
-              const SizedBox(height: 8),
-              _buildSortOption(
-                context: context,
-                label: 'Amount',
-                value: 'amount',
-                groupValue: _sortBy,
-                onChanged: (value) => setState(() => _sortBy = value!),
-              ),
-              const Divider(height: 32),
-              Text('Sort Order', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStyledChip(
-                      context: context,
-                      label: 'Ascending',
-                      icon: Icons.arrow_upward_rounded,
-                      isSelected: _sortAscending,
-                      onTap: () => setState(() => _sortAscending = true),
-                    ),
+            const Divider(height: 32),
+
+            // --- FILTER BY TYPE ---
+            Text('Filter by Type', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 8.0,
+              children: ['All', 'Income', 'Expense', 'Saving'].map((type) {
+                return _buildStyledChip(
+                  context: context,
+                  label: type,
+                  isSelected: _selectedType == type,
+                  onTap: () => setState(() => _selectedType = type),
+                );
+              }).toList(),
+            ),
+
+            const Divider(height: 32),
+
+            // --- SORT OPTIONS ---
+            Text('Sort by', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            _buildSortOption(
+              context: context,
+              label: 'Date',
+              value: 'date',
+              groupValue: _sortBy,
+              onChanged: (value) => setState(() => _sortBy = value!),
+            ),
+            const SizedBox(height: 8),
+            _buildSortOption(
+              context: context,
+              label: 'Amount',
+              value: 'amount',
+              groupValue: _sortBy,
+              onChanged: (value) => setState(() => _sortBy = value!),
+            ),
+            const Divider(height: 32),
+            Text('Sort Order', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStyledChip(
+                    context: context,
+                    label: 'Ascending',
+                    icon: Icons.arrow_upward_rounded,
+                    isSelected: _sortAscending,
+                    onTap: () => setState(() => _sortAscending = true),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStyledChip(
-                      context: context,
-                      label: 'Descending',
-                      icon: Icons.arrow_downward_rounded,
-                      isSelected: !_sortAscending,
-                      onTap: () => setState(() => _sortAscending = false),
-                    ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildStyledChip(
+                    context: context,
+                    label: 'Descending',
+                    icon: Icons.arrow_downward_rounded,
+                    isSelected: !_sortAscending,
+                    onTap: () => setState(() => _sortAscending = false),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                    )
-                  ),
-                  onPressed: () {
-                    widget.onApply(_selectedType, _sortBy, _sortAscending, _selectedViewMode, _selectedYear, _selectedMonth);
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Apply Filters', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
+                    )),
+                onPressed: () {
+                  widget.onApply(_selectedType, _sortBy, _sortAscending,
+                      _selectedViewMode, _selectedYear, _selectedMonth);
+                  Navigator.pop(context);
+                },
+                child: const Text('Apply Filters',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -706,7 +755,9 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
   }) {
     final theme = Theme.of(context);
     return Material(
-      color: isSelected ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceContainerHighest,
+      color: isSelected
+          ? theme.colorScheme.primaryContainer
+          : theme.colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -717,13 +768,20 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (icon != null) Icon(icon, size: 18, color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant),
+              if (icon != null)
+                Icon(icon,
+                    size: 18,
+                    color: isSelected
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurfaceVariant),
               if (icon != null) const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                  color: isSelected
+                      ? theme.colorScheme.onPrimaryContainer
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -743,26 +801,28 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
     final theme = Theme.of(context);
     final isSelected = value == groupValue;
     return Material(
-       color: isSelected ? theme.colorScheme.primary.withAlpha(25) : Colors.transparent,
-       borderRadius: BorderRadius.circular(12),
-       child: InkWell(
-         onTap: () => onChanged(value),
-         borderRadius: BorderRadius.circular(12),
-         child: Padding(
-           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-           child: Row(
-             children: [
-               Radio<String>(
-                 value: value,
-                 groupValue: groupValue,
-                 onChanged: onChanged,
-                 activeColor: theme.colorScheme.primary,
-               ),
-               Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-             ],
-           ),
-         ),
-       ),
+      color: isSelected
+          ? theme.colorScheme.primary.withAlpha(25)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => onChanged(value),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Radio<String>(
+                value: value,
+                groupValue: groupValue,
+                onChanged: onChanged,
+                activeColor: theme.colorScheme.primary,
+              ),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
