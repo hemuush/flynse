@@ -61,7 +61,6 @@ class CategoryRepository {
     return await db.delete('sub_categories', where: 'id = ?', whereArgs: [id]);
   }
   
-  // --- NEW METHOD ---
   /// Moves a sub-category to a new parent category and updates all associated transactions.
   Future<void> moveSubCategory({
     required int subCategoryId,

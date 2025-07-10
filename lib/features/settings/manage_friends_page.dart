@@ -1,11 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/debt_repository.dart';
 import 'package:flynse/core/data/repositories/friend_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/features/settings/friend_history_page.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 class ManageFriendsPage extends StatefulWidget {
@@ -32,22 +29,6 @@ class _ManageFriendsPageState extends State<ManageFriendsPage> {
     });
   }
   
-  /// Handles picking an image from the gallery and saving it as a base64 avatar.
-  Future<void> _pickAndSetAvatar(int friendId) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 200, // Constrain image size to save space
-      maxHeight: 200,
-      imageQuality: 75, // Compress image
-    );
-
-    if (pickedFile != null) {
-      await _friendRepo.updateFriendAvatar(friendId, base64Encode(await File(pickedFile.path).readAsBytes()));
-      _refreshFriendsList(); // Refresh the list to show the new avatar
-    }
-  }
-
   Future<void> _showAddFriendDialog() async {
     final nameController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -197,13 +178,7 @@ class _ManageFriendsPageState extends State<ManageFriendsPage> {
   Widget _buildFriendCard(Map<String, dynamic> friend) {
     final theme = Theme.of(context);
     final friendName = friend['name'] as String;
-    final friendAvatarBase64 = friend['avatar'] as String?;
     
-    ImageProvider? avatarImage;
-    if (friendAvatarBase64 != null) {
-      avatarImage = MemoryImage(base64Decode(friendAvatarBase64));
-    }
-
     return Card(
       elevation: 0,
       color: theme.colorScheme.surfaceContainerHighest,
@@ -223,20 +198,16 @@ class _ManageFriendsPageState extends State<ManageFriendsPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                   GestureDetector(
-                      onTap: () => _pickAndSetAvatar(friend['id']),
-                      child: CircleAvatar(
-                        radius: 28,
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        foregroundColor: theme.colorScheme.onPrimaryContainer,
-                        backgroundImage: avatarImage,
-                        child: avatarImage == null && friendName.isNotEmpty
-                            ? Text(
-                                friendName[0].toUpperCase(),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-                              )
-                            : null,
-                      ),
+                   CircleAvatar(
+                      radius: 28,
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      foregroundColor: theme.colorScheme.onPrimaryContainer,
+                      child: friendName.isNotEmpty
+                          ? Text(
+                              friendName[0].toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+                            )
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     Text(

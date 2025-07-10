@@ -8,13 +8,13 @@ import 'package:provider/provider.dart';
 /// A widget for selecting the year and month to display on the dashboard.
 ///
 /// This provides a cleaner and more intuitive way for users to navigate
-/// through different time periods.
+/// through different time periods, with quick navigation buttons.
 class PeriodSelector extends StatelessWidget {
   const PeriodSelector({super.key});
 
   final List<String> _monthNames = const [
-    'January', 'February', 'March', 'April', 'May', 'June', 'July',
-    'August', 'September', 'October', 'November', 'December'
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul',
+    'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
 
   Future<void> _showPeriodDialog(BuildContext context) async {
@@ -39,14 +39,13 @@ class PeriodSelector extends StatelessWidget {
                       if (value != null) {
                         setDialogState(() {
                           selectedYear = value;
-                          // If the new year doesn't have the current month, reset it
                           if (!appProvider.getAvailableMonthsForYear(value).contains(selectedMonth)) {
                             selectedMonth = appProvider.getAvailableMonthsForYear(value).first;
                           }
                         });
                       }
                     },
-                    decoration: const InputDecoration(labelText: 'Year'),
+                    decoration: const InputDecoration(labelText: 'Year', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<int>(
@@ -59,7 +58,7 @@ class PeriodSelector extends StatelessWidget {
                          });
                        }
                     },
-                    decoration: const InputDecoration(labelText: 'Month'),
+                    decoration: const InputDecoration(labelText: 'Month', border: OutlineInputBorder()),
                   ),
                 ],
               ),
@@ -90,69 +89,89 @@ class PeriodSelector extends StatelessWidget {
     final periodText =
         '${_monthNames[provider.selectedMonth - 1]} ${provider.selectedYear}';
 
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withAlpha(204),
-          borderRadius: BorderRadius.circular(24.0),
-          border: Border.all(color: theme.dividerColor.withAlpha(100))
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: () => _showPeriodDialog(context),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  bottomLeft: Radius.circular(24),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_calendar_outlined,
-                          size: 20, color: theme.colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        periodText,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              VerticalDivider(
-                color: theme.dividerColor.withAlpha(150),
-                width: 1,
-                thickness: 1,
-                indent: 10,
-                endIndent: 10,
-              ),
-              IconButton(
-                icon: const Icon(Icons.bar_chart_rounded),
-                color: theme.colorScheme.primary,
-                tooltip: 'View Analytics',
-                onPressed: () async {
-                  await context
-                      .read<AnalyticsProvider>()
-                      .fetchAnalyticsData(provider.selectedYear);
-                  if (context.mounted) {
-                    Navigator.of(context).pushNamed(
-                      AppRouter.analyticsPage,
-                      arguments: AnalyticsPageArgs(
-                        selectedYear: provider.selectedYear,
-                        selectedMonth: provider.selectedMonth,
-                      ),
-                    );
-                  }
-                },
-              )
-            ],
+    // --- NEW: Logic to handle month navigation ---
+    void goToPreviousMonth() {
+      int newMonth = provider.selectedMonth - 1;
+      int newYear = provider.selectedYear;
+      if (newMonth == 0) {
+        newMonth = 12;
+        newYear--;
+      }
+      // Only change if the target year is available
+      if (provider.availableYears.contains(newYear)) {
+        provider.setPeriod(newYear, newMonth);
+      }
+    }
+
+    void goToNextMonth() {
+      int newMonth = provider.selectedMonth + 1;
+      int newYear = provider.selectedYear;
+      if (newMonth == 13) {
+        newMonth = 1;
+        newYear++;
+      }
+      // Do not go into a future month beyond the current date
+      final now = DateTime.now();
+      if (newYear > now.year || (newYear == now.year && newMonth > now.month)) {
+        return;
+      }
+      provider.setPeriod(newYear, newYear);
+    }
+    
+    final now = DateTime.now();
+    final isLastMonth = provider.selectedYear == now.year && provider.selectedMonth == now.month;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(color: theme.dividerColor.withAlpha(128))
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // --- Previous Month Button ---
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded),
+            onPressed: goToPreviousMonth,
+            tooltip: 'Previous Month',
           ),
-        ),
+          // --- Date Display and Dialog Trigger ---
+          GestureDetector(
+            onTap: () => _showPeriodDialog(context),
+            child: Text(
+              periodText,
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          // --- Next Month Button ---
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded),
+            onPressed: isLastMonth ? null : goToNextMonth,
+            tooltip: 'Next Month',
+          ),
+          // --- Analytics Button ---
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded),
+            color: theme.colorScheme.primary,
+            tooltip: 'View Analytics',
+            onPressed: () async {
+              await context
+                  .read<AnalyticsProvider>()
+                  .fetchAnalyticsData(provider.selectedYear);
+              if (context.mounted) {
+                Navigator.of(context).pushNamed(
+                  AppRouter.analyticsPage,
+                  arguments: AnalyticsPageArgs(
+                    selectedYear: provider.selectedYear,
+                    selectedMonth: provider.selectedMonth,
+                  ),
+                );
+              }
+            },
+          )
+        ],
       ),
     );
   }

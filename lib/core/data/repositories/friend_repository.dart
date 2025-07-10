@@ -25,12 +25,6 @@ class FriendRepository {
     return db.insert('friends', {'name': name}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
-  /// Updates the avatar for a friend.
-  Future<void> updateFriendAvatar(int id, String avatar) async {
-    final db = await _database;
-    await db.update('friends', {'avatar': avatar}, where: 'id = ?', whereArgs: [id]);
-  }
-
   /// Deletes a friend and disassociates them from transactions.
   /// Note: This does not delete the friend if they have pending debts.
   /// That check is handled in the UI layer before calling this method.

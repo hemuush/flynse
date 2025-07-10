@@ -18,43 +18,22 @@ class TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
-  // Local state for period selection, driven by the filter sheet
-  late int _selectedYear;
-  late int _selectedMonth;
-  late String _viewMode;
+  // ViewMode is local to this page's filter sheet
+  String _viewMode = 'Monthly';
 
   final List<String> _monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
+    'January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'
   ];
 
   @override
   void initState() {
     super.initState();
-    final appProvider = context.read<AppProvider>();
+    // Initialize local controllers and listeners
     final transactionProvider = context.read<TransactionProvider>();
     _searchController.text = transactionProvider.transactionSearchQuery;
-    _searchController.addListener(_onSearchChanged);
-
-    // Initialize local state from provider
-    _selectedYear = appProvider.selectedYear;
-    _selectedMonth = appProvider.selectedMonth;
     _viewMode = transactionProvider.transactionViewMode;
-
-    // Initial data load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateTransactions();
-    });
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
@@ -65,21 +44,17 @@ class TransactionListPageState extends State<TransactionListPage> {
     super.dispose();
   }
 
-  void _updateTransactions() {
-    final provider = context.read<TransactionProvider>();
-    provider.setTransactionFilters(
-      year: _selectedYear,
-      month: _selectedMonth,
-      query: _searchController.text,
-      viewMode: _viewMode,
-    );
-  }
-
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
-        _updateTransactions();
+        final appProvider = context.read<AppProvider>();
+        context.read<TransactionProvider>().setTransactionFilters(
+              year: appProvider.selectedYear,
+              month: appProvider.selectedMonth,
+              query: _searchController.text,
+              viewMode: _viewMode,
+            );
       }
     });
   }
@@ -116,26 +91,26 @@ class TransactionListPageState extends State<TransactionListPage> {
   }
 
   void _showFilterSortSheet() {
-    final provider = context.read<TransactionProvider>();
+    final transactionProvider = context.read<TransactionProvider>();
+    final appProvider = context.read<AppProvider>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _FilterSortSheet(
-        initialType: provider.transactionTypeFilter,
-        initialSortBy: provider.transactionSortBy,
-        initialSortAscending: provider.transactionSortAscending,
+        initialType: transactionProvider.transactionTypeFilter,
+        initialSortBy: transactionProvider.transactionSortBy,
+        initialSortAscending: transactionProvider.transactionSortAscending,
         initialViewMode: _viewMode,
-        initialYear: _selectedYear,
-        initialMonth: _selectedMonth,
+        initialYear: appProvider.selectedYear,
+        initialMonth: appProvider.selectedMonth,
         onApply: (type, sortBy, ascending, viewMode, year, month) {
-          // Update local state from filter sheet and refresh data
+          // When filters are applied, update the local viewMode state
           setState(() {
             _viewMode = viewMode;
-            _selectedYear = year;
-            _selectedMonth = month;
           });
-          provider.setTransactionFilters(
+          // And trigger a refresh in the provider
+          transactionProvider.setTransactionFilters(
               year: year,
               month: month,
               type: type,
@@ -149,7 +124,25 @@ class TransactionListPageState extends State<TransactionListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<TransactionProvider>();
+    // Watch both providers for changes
+    final appProvider = context.watch<AppProvider>();
+    final transactionProvider = context.watch<TransactionProvider>();
+
+    // --- FIX: Check for period desynchronization and schedule a refresh ---
+    final bool isPeriodOutOfSync = (appProvider.selectedYear != transactionProvider.currentYear) ||
+                                  (_viewMode == 'Monthly' && appProvider.selectedMonth != transactionProvider.currentMonth);
+
+    if (isPeriodOutOfSync) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Refresh the transaction data using the correct period from AppProvider
+        transactionProvider.setTransactionFilters(
+          year: appProvider.selectedYear,
+          month: appProvider.selectedMonth,
+          query: _searchController.text,
+          viewMode: _viewMode,
+        );
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -159,13 +152,13 @@ class TransactionListPageState extends State<TransactionListPage> {
       ),
       body: Column(
         children: [
-          _buildHeader(),
+          _buildHeader(appProvider),
           Expanded(
-            child: provider.isLoading
+            child: transactionProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : provider.filteredTransactions.isEmpty
+                : transactionProvider.filteredTransactions.isEmpty
                     ? _buildEmptyState(context)
-                    : _buildTransactionList(provider),
+                    : _buildTransactionList(transactionProvider),
           ),
         ],
       ),
@@ -332,11 +325,12 @@ class TransactionListPageState extends State<TransactionListPage> {
   }
 
   // --- REFACTORED HEADER WIDGET ---
-  Widget _buildHeader() {
+  Widget _buildHeader(AppProvider appProvider) {
     final theme = Theme.of(context);
+    // Use the global period from appProvider for display
     String periodText = _viewMode == 'Monthly'
-        ? 'Showing: ${_monthNames[_selectedMonth - 1]} $_selectedYear'
-        : 'Showing: Year $_selectedYear';
+        ? 'Showing: ${_monthNames[appProvider.selectedMonth - 1]} ${appProvider.selectedYear}'
+        : 'Showing: Year ${appProvider.selectedYear}';
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -351,7 +345,6 @@ class TransactionListPageState extends State<TransactionListPage> {
           Row(
             children: [
               Expanded(
-                // --- FIX: Wrapped TextField in a Material widget ---
                 child: Material(
                   elevation: 0,
                   color: theme.colorScheme.surfaceContainerHighest,
@@ -534,18 +527,8 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
   late int _selectedMonth;
 
   final List<String> _monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
+    'January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'
   ];
 
   @override
@@ -621,6 +604,10 @@ class _FilterSortSheetState extends State<_FilterSortSheet> {
                       if (value != null) {
                         setState(() {
                           _selectedYear = value;
+                          // If the new year doesn't have the currently selected month, reset it
+                          if (!appProvider.getAvailableMonthsForYear(value).contains(_selectedMonth)) {
+                            _selectedMonth = appProvider.getAvailableMonthsForYear(value).first;
+                          }
                         });
                       }
                     },

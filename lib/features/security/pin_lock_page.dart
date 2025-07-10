@@ -45,7 +45,7 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
   String _firstPin = '';
   String _errorText = '';
   bool _canUseBiometrics = false;
-  bool _isAuthenticating = false; // --- FIX: Add flag to prevent multiple auth attempts ---
+  bool _isAuthenticating = false; // Flag to prevent multiple auth attempts
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -61,9 +61,12 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
       CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
     );
 
-    _checkBiometrics();
+    // Defer the biometric check until after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBiometrics();
+    });
   }
-    
+
   @override
   void dispose() {
     _shakeController.dispose();
@@ -84,14 +87,17 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
     });
 
     final pinExists = await _settingsRepo.getPin() != null;
+    
+    // Automatically trigger biometrics if the device supports it, is in enter mode, and a PIN exists.
     if (_canUseBiometrics && widget.mode == PinLockMode.enter && pinExists) {
       _authenticateWithBiometrics();
     }
   }
 
   Future<void> _authenticateWithBiometrics() async {
-    // --- FIX: Prevent multiple concurrent authentication attempts ---
+    // Prevent multiple concurrent authentication attempts
     if (_isAuthenticating) return;
+    
     if (mounted) {
       setState(() {
         _isAuthenticating = true;
@@ -103,12 +109,16 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
       authenticated = await _localAuth.authenticate(
         localizedReason: 'Scan your fingerprint or face to unlock Flynse',
         options: const AuthenticationOptions(
-          stickyAuth: true,
+          stickyAuth: true, // Keep the dialog open on app switch
           biometricOnly: true,
         ),
       );
-    } on PlatformException {
-      // Handle error if needed
+    } on PlatformException catch (e) {
+      if(mounted) {
+        setState(() {
+          _errorText = "Biometrics error: ${e.message}";
+        });
+      }
       authenticated = false;
     }
 
@@ -116,13 +126,13 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
 
     if (authenticated) {
       _onSuccessfulAuthentication();
-    }
-
-    // --- FIX: Reset the flag after the attempt is complete ---
-    if (mounted) {
-      setState(() {
-        _isAuthenticating = false;
-      });
+    } else {
+      // Reset the flag if authentication is not successful (e.g., user cancelled)
+       if (mounted) {
+        setState(() {
+          _isAuthenticating = false;
+        });
+      }
     }
   }
 
@@ -131,6 +141,7 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
     if (widget.onPinCorrect != null) {
       widget.onPinCorrect!();
     } else {
+      // Use pushReplacementNamed to prevent going back to the lock screen
       Navigator.of(context).pushReplacementNamed(AppRouter.homePage);
     }
   }
@@ -140,9 +151,10 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
     if (_enteredPin.length < 4) {
       setState(() {
         _enteredPin += value;
-        _errorText = '';
+        _errorText = ''; // Clear error on new input
       });
       if (_enteredPin.length == 4) {
+        // Short delay for user to see the last digit filled
         Future.delayed(const Duration(milliseconds: 200), () {
           if (mounted) _handlePinSubmit(_enteredPin);
         });
@@ -163,6 +175,7 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
   Future<void> _triggerError() async {
     _shakeController.forward(from: 0);
     HapticFeedback.vibrate();
+    // Wait for the animation to complete before clearing the PIN
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) {
       setState(() {
@@ -187,16 +200,23 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
       } else {
         if (pin == _firstPin) {
           await _settingsRepo.savePin(pin);
-          widget.onPinCreated?.call();
+          // If a callback is provided, call it.
+          if (widget.onPinCreated != null) {
+            widget.onPinCreated!();
+          } else {
+            // Otherwise, provide a default navigation action.
+            _onSuccessfulAuthentication();
+          }
         } else {
           setState(() {
             _errorText = 'PINs do not match. Please try again.';
-            _isConfirming = false;
+            _isConfirming = false; // Reset to start over
+            _firstPin = ''; // FIX: Clear the first PIN on mismatch
           });
           _triggerError();
         }
       }
-    } else {
+    } else { // PinLockMode.enter
       final savedPin = await _settingsRepo.getPin();
       if (savedPin == pin) {
         _onSuccessfulAuthentication();
@@ -221,6 +241,7 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -234,10 +255,9 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Consumer<SettingsProvider>(
-                      builder: (context, provider, child) {
-                        final firstName = provider.userName.split(' ').first;
+                      builder: (context, settingsProvider, child) {
                         return Text(
-                          'Hi, $firstName',
+                          'Hi, ${settingsProvider.userName.split(' ').first}',
                           style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                         );
                       },
@@ -274,14 +294,16 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
                     ),
                      if (_canUseBiometrics && widget.mode == PinLockMode.enter) ...[
                       const SizedBox(height: 24),
-                      TextButton.icon(
-                        onPressed: _authenticateWithBiometrics,
-                        icon: Icon(Icons.fingerprint, color: theme.colorScheme.primary),
-                        label: Text(
-                          'Use fingerprint',
-                          style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
+                      _isAuthenticating 
+                        ? const CircularProgressIndicator()
+                        : TextButton.icon(
+                          onPressed: _authenticateWithBiometrics,
+                          icon: Icon(Icons.fingerprint, color: theme.colorScheme.primary),
+                          label: Text(
+                            'Use Biometrics',
+                            style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
+                          ),
                         ),
-                      ),
                     ],
                   ],
                 ),
@@ -307,24 +329,30 @@ class _PinLockPageState extends State<PinLockPage> with SingleTickerProviderStat
         bool isActive = index < _enteredPin.length;
         bool hasError = _errorText.isNotEmpty;
         Color borderColor = hasError 
-          ? theme.colorScheme.error 
-          : isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface.withAlpha(77);
+            ? theme.colorScheme.error 
+            : isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface.withAlpha(77);
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          margin: const EdgeInsets.symmetric(horizontal: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 12),
           width: 50,
           height: 60,
           decoration: BoxDecoration(
             color: isActive 
-              ? (hasError ? theme.colorScheme.error.withAlpha(26) : theme.colorScheme.primary.withAlpha(26)) 
-              : Colors.transparent,
+                ? (hasError ? theme.colorScheme.error.withAlpha(26) : theme.colorScheme.primary.withAlpha(26)) 
+                : Colors.transparent,
             border: Border.all(
               color: borderColor,
-              width: 2,
+              width: 1.5,
             ),
             borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: isActive ? Text(
+              '●',
+              style: TextStyle(color: borderColor, fontSize: 16),
+            ) : null,
           ),
         );
       }),

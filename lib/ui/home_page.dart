@@ -1,5 +1,3 @@
-// lib/ui/home_page.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +7,7 @@ import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/settings_provider.dart';
 import 'package:flynse/core/routing/app_router.dart';
 import 'package:flynse/features/dashboard/dashboard_page.dart';
-import 'package:flynse/features/dashboard/widgets/yearly_details_sheet.dart';
+import 'package:flynse/features/dashboard/widgets/financial_details_sheet.dart';
 import 'package:flynse/features/debt/debt.dart';
 import 'package:flynse/features/friends/friends.dart';
 import 'package:flynse/features/security/pin_lock_page.dart';
@@ -29,9 +27,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-
   DateTime? _lastPressedAt;
-
   bool _isLocked = true;
 
   @override
@@ -39,14 +35,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Allows other parts of the app to trigger tab navigation.
     context.read<AppProvider>().setNavigateToTab((int index) {
       if (mounted) {
         _onItemTapped(index);
       }
     });
 
-    // Initial setup after the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SettingsProvider>().checkAndPerformAutoBackup();
       if (!widget.isFirstLaunch) {
@@ -65,7 +59,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // Handles app lifecycle changes to re-lock the app when paused.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
@@ -81,7 +74,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
-  // Checks if a PIN exists and shows the lock screen if needed.
   Future<void> _checkPinAndLock() async {
     final settingsRepo = SettingsRepository();
     final pinExists = await settingsRepo.getPin() != null;
@@ -96,7 +88,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               setState(() {
                 _isLocked = false;
               });
-              Navigator.of(context).pop();
             }
           },
         ),
@@ -110,25 +101,22 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
-  // The main pages for the IndexedStack.
   final List<Widget> _mainPages = [
     const DashboardPage(),
     const SavingsPage(),
     const DebtPage(),
     const FriendsPage(),
-    const TransactionListPage(), // Added History Page
+    const TransactionListPage(),
   ];
 
-  // Titles for the app bar corresponding to the pages.
   static const List<String> _pageTitles = [
     'Overview',
     'Savings',
     'Debts',
     'Friends',
-    'History', // Added History Title
+    'History',
   ];
 
-  // Handles taps on the bottom navigation bar items.
   void _onItemTapped(int index) {
     HapticFeedback.lightImpact();
     setState(() {
@@ -136,13 +124,11 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     });
   }
 
-  // Navigates to the settings page.
   void _navigateToSettings() {
     HapticFeedback.lightImpact();
     Navigator.of(context).pushNamed(AppRouter.settingsPage);
   }
 
-  // Determines the action when the Floating Action Button is pressed.
   void _onFabPressed() {
     HapticFeedback.mediumImpact();
     String routeName;
@@ -151,20 +137,20 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     final pageIndexForAction = _selectedIndex;
 
     switch (pageIndexForAction) {
-      case 0: // Dashboard
-      case 4: // History
+      case 0:
+      case 4:
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs();
         break;
-      case 1: // Savings
+      case 1:
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs(isSaving: true);
         break;
-      case 2: // Debts
+      case 2:
         routeName = AppRouter.addDebtPage;
         arguments = null;
         break;
-      case 3: // Friends
+      case 3:
         routeName = AppRouter.addEditTransactionPage;
         arguments = AddEditTransactionPageArgs(isLoanToFriend: true);
         break;
@@ -180,7 +166,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     final settingsProvider = context.watch<SettingsProvider>();
 
-    // Determines the starting color for the background gradient.
     Color getStartColor() {
       if (_selectedIndex == 0) {
         return theme.colorScheme.surfaceContainer;
@@ -193,14 +178,69 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       theme.scaffoldBackgroundColor,
     ];
 
-    // Determines the title text for the app bar.
-    String titleText;
-    if (_selectedIndex == 0) {
-      final firstName = settingsProvider.userName.split(' ').first;
-      titleText = 'Hi, ${firstName.isNotEmpty ? firstName : 'There'}';
-    } else {
-      titleText = _pageTitles[_selectedIndex];
-    }
+    // --- FIX: Restore the AppBar for non-dashboard pages ---
+    final appBar = _selectedIndex == 0
+        ? null // The Dashboard page has its own AppBar.
+        : AppBar(
+            automaticallyImplyLeading: false,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(
+              _pageTitles[_selectedIndex],
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.assessment_outlined),
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  final appProvider = context.read<AppProvider>();
+                  await context
+                      .read<AnalyticsProvider>()
+                      .fetchAnalyticsData(appProvider.selectedYear);
+                  if (context.mounted) {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const FinancialDetailsSheet(sheetType: SheetType.yearly),
+                    );
+                  }
+                },
+                tooltip: 'Yearly Details',
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0, left: 8.0),
+                child: GestureDetector(
+                  onTap: _navigateToSettings,
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    backgroundImage:
+                        settingsProvider.profileImageBase64 != null &&
+                                settingsProvider.profileImageBase64!.isNotEmpty
+                            ? MemoryImage(
+                                base64Decode(
+                                    settingsProvider.profileImageBase64!))
+                            : null,
+                    child: (settingsProvider.profileImageBase64 == null ||
+                            settingsProvider.profileImageBase64!.isEmpty)
+                        ? (settingsProvider.userName.isNotEmpty
+                            ? Text(
+                                settingsProvider.userName[0].toUpperCase(),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.bold),
+                              )
+                            : Icon(Icons.person_outline_rounded,
+                                size: 24, color: theme.colorScheme.primary))
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+          );
 
     return PopScope(
       canPop: false,
@@ -242,68 +282,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         child: Scaffold(
           extendBody: true,
           backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            title: Text(
-              titleText,
-              style: theme.textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            actions: [
-              // Yearly details button
-              IconButton(
-                icon: const Icon(Icons.assessment_outlined),
-                onPressed: () async {
-                  HapticFeedback.lightImpact();
-                  final appProvider = context.read<AppProvider>();
-                  await context
-                      .read<AnalyticsProvider>()
-                      .fetchAnalyticsData(appProvider.selectedYear);
-                  if (context.mounted) {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const YearlyDetailsSheet(),
-                    );
-                  }
-                },
-                tooltip: 'Yearly Details',
-              ),
-              // Profile/Settings Icon
-              Padding(
-                padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-                child: GestureDetector(
-                  onTap: _navigateToSettings,
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    backgroundImage:
-                        settingsProvider.profileImageBase64 != null &&
-                                settingsProvider.profileImageBase64!.isNotEmpty
-                            ? MemoryImage(
-                                base64Decode(
-                                    settingsProvider.profileImageBase64!))
-                            : null,
-                    child: (settingsProvider.profileImageBase64 == null ||
-                            settingsProvider.profileImageBase64!.isEmpty)
-                        ? (settingsProvider.userName.isNotEmpty
-                            ? Text(
-                                settingsProvider.userName[0].toUpperCase(),
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                    color: theme.colorScheme.primary,
-                                    fontWeight: FontWeight.bold),
-                              )
-                            : Icon(Icons.person_outline_rounded,
-                                size: 24, color: theme.colorScheme.primary))
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          appBar: appBar, // Use the conditional AppBar
           body: IndexedStack(
             index: _selectedIndex,
             children: _mainPages,
@@ -347,7 +326,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                 label: 'Friends',
               ),
               BottomNavigationBarItem(
-                // Added History Item
                 icon: Icon(Icons.history_outlined),
                 activeIcon: Icon(Icons.history_rounded),
                 label: 'History',

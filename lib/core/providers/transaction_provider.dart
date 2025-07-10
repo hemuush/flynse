@@ -23,14 +23,24 @@ class TransactionProvider with ChangeNotifier {
   bool _transactionSortAscending = false;
   bool get transactionSortAscending => _transactionSortAscending;
 
-  // New property to manage the view mode
   String _transactionViewMode = 'Monthly';
   String get transactionViewMode => _transactionViewMode;
+  
+  // --- NEW: Properties to track the current filtered period ---
+  int? _currentYear;
+  int? get currentYear => _currentYear;
+
+  int? _currentMonth;
+  int? get currentMonth => _currentMonth;
+
 
   Future<void> loadTransactions(int year, int? month) async {
     _isLoading = true;
     notifyListeners();
-    await _fetchFilteredTransactions(year, month);
+    // --- FIX: Store the period being loaded ---
+    _currentYear = year;
+    _currentMonth = _transactionViewMode == 'Yearly' ? null : month;
+    await _fetchFilteredTransactions(year, _currentMonth);
     _isLoading = false;
     notifyListeners();
   }
@@ -53,6 +63,7 @@ class TransactionProvider with ChangeNotifier {
     // If view mode is yearly, month should be null
     final effectiveMonth = _transactionViewMode == 'Yearly' ? null : month;
 
+    // This will now call loadTransactions which updates the current period
     await loadTransactions(year, effectiveMonth);
   }
 

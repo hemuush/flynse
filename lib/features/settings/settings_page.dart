@@ -62,9 +62,11 @@ class _SettingsPageState extends State<SettingsPage>
     final pickedFile = await picker.pickImage(
         source: ImageSource.gallery, imageQuality: 75, maxWidth: 400);
     if (pickedFile != null) {
-      setState(() {
-        _profileImageFile = File(pickedFile.path);
-      });
+      if(mounted){
+        setState(() {
+          _profileImageFile = File(pickedFile.path);
+        });
+      }
     }
   }
 
@@ -96,7 +98,6 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
-  // --- NEW: Method to show the salary cycle selection dialog ---
   void _showSalaryCycleDialog() {
     final settingsProvider = context.read<SettingsProvider>();
     final appProvider = context.read<AppProvider>();
@@ -157,7 +158,6 @@ class _SettingsPageState extends State<SettingsPage>
 
     var status = await Permission.manageExternalStorage.request();
 
-    // --- FIX: Added mounted check ---
     if (!mounted) return false;
 
     if (status.isPermanentlyDenied) {
@@ -189,7 +189,6 @@ class _SettingsPageState extends State<SettingsPage>
       if (directoryPath != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('backup_location', directoryPath);
-        // --- FIX: Added mounted check ---
         if (mounted) {
           setState(() {
             _backupPath = directoryPath;
@@ -285,12 +284,11 @@ class _SettingsPageState extends State<SettingsPage>
       return;
     }
 
-    // --- FIX: Store BuildContext in a local variable before await ---
-    final context = this.context;
-    final navigator = Navigator.of(context);
+    final currentContext = this.context;
+    final navigator = Navigator.of(currentContext);
 
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: currentContext,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Restore'),
         content:
@@ -320,9 +318,8 @@ class _SettingsPageState extends State<SettingsPage>
         await dbHelper.closeDatabase();
         await backupFile.copy(dbPath);
 
-        // --- FIX: Use the local context variable and check if mounted ---
-        if (context.mounted) {
-          await context.read<AppProvider>().refreshAllData();
+        if (currentContext.mounted) {
+          await currentContext.read<AppProvider>().refreshAllData();
           _showSnackBar('Restore successful!');
           navigator.pop();
         }
@@ -417,7 +414,6 @@ class _SettingsPageState extends State<SettingsPage>
 
     if (period == null) return;
 
-    // --- FIX: Added mounted check ---
     if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
@@ -442,9 +438,8 @@ class _SettingsPageState extends State<SettingsPage>
         false;
 
     if (confirmed) {
-      setState(() => _isDeletingData = true);
+      if(mounted) setState(() => _isDeletingData = true);
       try {
-        // --- FIX: Added mounted check ---
         if (!mounted) return;
         await context.read<SettingsProvider>().deleteMonthlyData(period['year']!, period['month']!);
         if (!mounted) return;
@@ -482,12 +477,10 @@ class _SettingsPageState extends State<SettingsPage>
         false;
 
     if (confirmed) {
-      setState(() => _isDeletingData = true);
+      if(mounted) setState(() => _isDeletingData = true);
       try {
-        // --- FIX: Added mounted check ---
         if (!mounted) return;
         await context.read<SettingsProvider>().clearAllData(context);
-        // No need for snackbar or state change, as we are navigating away.
       } catch (e) {
         _showSnackBar('An error occurred: $e', isError: true);
         if (mounted) {
@@ -603,7 +596,6 @@ class _SettingsPageState extends State<SettingsPage>
           ],
         ),
         const SizedBox(height: 16),
-        // --- MODIFIED: Added Planning section with Salary Cycle setting ---
         _buildSectionCard(
           title: 'Planning',
           children: [
@@ -666,7 +658,6 @@ class _SettingsPageState extends State<SettingsPage>
           ],
         ),
         const SizedBox(height: 16),
-        // MODIFICATION: Changed this section to set the theme's seed color
         _buildSectionCard(
           title: 'Theme Color',
           children: [

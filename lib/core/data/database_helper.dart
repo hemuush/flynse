@@ -139,11 +139,11 @@ class DatabaseHelper {
       )
     ''');
 
+    // ---FIX: Removed the 'avatar' column---
     await db.execute('''
       CREATE TABLE friends (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        avatar TEXT
+        name TEXT NOT NULL UNIQUE
       )
     ''');
 

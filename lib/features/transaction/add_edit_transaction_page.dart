@@ -18,12 +18,14 @@ class AddEditTransactionPage extends StatefulWidget {
   final Map<String, dynamic>? transaction;
   final bool isSaving;
   final bool isLoanToFriend;
+  final bool isGenericLoan; // --- NEW ---
 
   const AddEditTransactionPage({
     super.key,
     this.transaction,
     this.isSaving = false,
     this.isLoanToFriend = false,
+    this.isGenericLoan = false, // --- NEW ---
   });
 
   bool get isEditMode => transaction != null;
@@ -82,7 +84,6 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
   }
 
   Future<bool> _showDiscardDialog() async {
-    final navigator = Navigator.of(context);
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -91,11 +92,11 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                 'If you go back now, you will lose the information you have entered.'),
             actions: [
               TextButton(
-                onPressed: () => navigator.pop(false),
+                onPressed: () => Navigator.of(context).pop(false),
                 child: const Text('Cancel'),
               ),
               TextButton(
-                onPressed: () => navigator.pop(true),
+                onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.error,
                 ),
@@ -110,11 +111,14 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
   void _initializeFirstForm() {
     DateTime initialDate;
 
+    // --- MODIFIED: Added isGenericLoan check ---
     final String initialType = widget.isSaving
         ? 'Saving'
         : (widget.isLoanToFriend
             ? 'Expense'
-            : widget.transaction?['type'] ?? 'Expense');
+            : (widget.isGenericLoan
+                ? 'Income'
+                : widget.transaction?['type'] ?? 'Expense'));
 
     if (widget.isEditMode) {
       initialDate = DateTime.parse(widget.transaction!['transaction_date']);
@@ -131,11 +135,14 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
     final subCategoryString = widget.transaction?['sub_category'] as String?;
     final subCategories = subCategoryString?.split(',').where((s) => s.isNotEmpty).toList() ?? [];
 
+    // --- MODIFIED: Added isGenericLoan check for category ---
     _addTransactionForm(
       type: initialType,
       categoryName: widget.isLoanToFriend
           ? AppConstants.kCatFriends
-          : widget.transaction?['category'],
+          : (widget.isGenericLoan
+              ? AppConstants.kCatLoan
+              : widget.transaction?['category']),
       subCategoryNames: subCategories,
       amount: widget.transaction?['amount']?.toString(),
       description: widget.transaction?['description'],
@@ -151,10 +158,12 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
       total += double.tryParse(split.amountController.text) ?? 0.0;
     }
 
-    setState(() {
-      formState.amountController.text =
-          total > 0 ? total.toStringAsFixed(2) : '';
-    });
+    if(mounted){
+      setState(() {
+        formState.amountController.text =
+            total > 0 ? total.toStringAsFixed(2) : '';
+      });
+    }
   }
 
   void _syncSplitsFromSubCategories(TransactionFormState formState) {
@@ -227,20 +236,22 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
       }
     }
 
-    setState(() {
-      _transactionForms.add(formState);
-      if (_transactionForms.length > 1) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_pageController.hasClients) {
-            _pageController.animateToPage(
-              _transactionForms.length - 1,
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-            );
-          }
-        });
-      }
-    });
+    if(mounted){
+      setState(() {
+        _transactionForms.add(formState);
+        if (_transactionForms.length > 1) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_pageController.hasClients) {
+              _pageController.animateToPage(
+                _transactionForms.length - 1,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOut,
+              );
+            }
+          });
+        }
+      });
+    }
   }
 
   void _removeCurrentTransactionForm() {
@@ -455,15 +466,9 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
     await appProvider.refreshAllData();
 
-    // FIX: Add a `mounted` check before using the Navigator to avoid errors
-    // if the widget is disposed during the async operations.
     if (!mounted) return;
     navigator.pop();
   }
-
-  // FIX: These dialog functions now only return the name of the new item,
-  // letting the calling widget handle the database insertion. This respects
-  // the component architecture and fixes the type errors.
 
   Future<String?> _showAddCategoryDialog(
       String title, String label, String type) async {
@@ -621,22 +626,13 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Replaced deprecated `onPopInvoked` with a safer pattern to handle back navigation.
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (bool didPop) {
-        if (didPop) {
-          return;
-        }
+    return WillPopScope(
+      onWillPop: () async {
         if (_isFormDirty()) {
-          _showDiscardDialog().then((bool? shouldPop) {
-            if (shouldPop == true && mounted) {
-              Navigator.of(context).pop();
-            }
-          });
-        } else {
-          Navigator.of(context).pop();
+          final shouldPop = await _showDiscardDialog();
+          return shouldPop;
         }
+        return true;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -780,7 +776,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                   onStateChanged: () => setState(() {}),
                   showAddDialog: (context, {required title, required label}) =>
                       _showAddCategoryDialog(title, label, formState.type),
-                  isLocked: widget.isLoanToFriend,
+                  isLocked: widget.isLoanToFriend || widget.isGenericLoan, // --- MODIFIED ---
                 ),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
