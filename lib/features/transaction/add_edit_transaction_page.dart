@@ -131,9 +131,10 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
       final day = (year == now.year && month == now.month) ? now.day : 1;
       initialDate = DateTime(year, month, day);
     }
-    
+
     final subCategoryString = widget.transaction?['sub_category'] as String?;
-    final subCategories = subCategoryString?.split(',').where((s) => s.isNotEmpty).toList() ?? [];
+    final subCategories =
+        subCategoryString?.split(',').where((s) => s.isNotEmpty).toList() ?? [];
 
     _addTransactionForm(
       type: initialType,
@@ -157,7 +158,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
       total += double.tryParse(split.amountController.text) ?? 0.0;
     }
 
-    if(mounted){
+    if (mounted) {
       setState(() {
         formState.amountController.text =
             total > 0 ? total.toStringAsFixed(2) : '';
@@ -170,7 +171,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
     final Map<String, String> oldAmounts = {
       for (var split in formState.splits)
-        if (split.subCategory != null) split.subCategory!: split.amountController.text
+        if (split.subCategory != null)
+          split.subCategory!: split.amountController.text
     };
 
     formState.splits.clear();
@@ -187,7 +189,6 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
     }
     _calculateAndUpdateTotal(formState);
   }
-
 
   Future<void> _addTransactionForm({
     required String type,
@@ -235,7 +236,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
       }
     }
 
-    if(mounted){
+    if (mounted) {
       setState(() {
         _transactionForms.add(formState);
         if (_transactionForms.length > 1) {
@@ -289,14 +290,16 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         allCategoriesSelected = false;
         break;
       }
-      if (form.category?['name'] == AppConstants.kCatFriends && form.selectedFriend == null) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Please select a friend for the transaction.')),
-           );
-         }
-         return;
-       }
+      if (form.category?['name'] == AppConstants.kCatFriends &&
+          form.selectedFriend == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please select a friend for the transaction.')),
+          );
+        }
+        return;
+      }
     }
 
     if (!allCategoriesSelected) {
@@ -325,7 +328,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
       final DateTime transactionDate = isToday ? now : form.date;
 
-      final bool isLoan = form.type == 'Income' && form.category?['name'] == AppConstants.kCatLoan;
+      final bool isLoan = form.type == 'Income' &&
+          form.category?['name'] == AppConstants.kCatLoan;
       final bool isDebtRepayment = form.isDebtRepayment;
       final bool isSavingsWithdrawal = form.isSavingsWithdrawal;
 
@@ -334,7 +338,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         description = form.descriptionController.text;
       } else {
         description = form.category!['name'];
-        if (form.category?['name'] == AppConstants.kCatFriends && form.selectedFriend != null) {
+        if (form.category?['name'] == AppConstants.kCatFriends &&
+            form.selectedFriend != null) {
           if (form.type == 'Expense') {
             description = 'Paid to ${form.selectedFriend!['name']}';
           } else if (form.type == 'Income') {
@@ -347,7 +352,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         if (form.selectedDebtForUserRepayment == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('There are no active debts to repay.')),
+              const SnackBar(
+                  content: Text('There are no active debts to repay.')),
             );
           }
           return;
@@ -361,9 +367,10 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         );
       } else if (isSavingsWithdrawal) {
         if (form.selectedCategoryForWithdrawal == null) {
-           if (mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please select a category to withdraw from.')),
+              const SnackBar(
+                  content: Text('Please select a category to withdraw from.')),
             );
           }
           return;
@@ -374,7 +381,9 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         final pairId = _uuid.v4();
 
         allTransactions.add({
-          'description': description.isNotEmpty ? description : 'Used Savings from $sourceCategory',
+          'description': description.isNotEmpty
+              ? description
+              : 'Used Savings from $sourceCategory',
           'amount': -amount.abs(),
           'type': 'Saving',
           'category': sourceCategory,
@@ -390,12 +399,13 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
           'transaction_date': transactionDate.toIso8601String(),
           'pair_id': pairId,
         });
-
       } else if (form.isFriendRepayment) {
         if (form.selectedDebtForRepayment == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('There are no active loans to friends to be repaid.')),
+              const SnackBar(
+                  content: Text(
+                      'There are no active loans to friends to be repaid.')),
             );
           }
           return;
@@ -425,7 +435,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
       } else if (form.isSplit) {
         final splitId = _uuid.v4();
         for (final split in form.splits) {
-           if((double.tryParse(split.amountController.text) ?? 0.0) > 0) {
+          if ((double.tryParse(split.amountController.text) ?? 0.0) > 0) {
             allTransactions.add({
               'description': description,
               'amount': double.tryParse(split.amountController.text) ?? 0.0,
@@ -552,11 +562,13 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final newName = controller.text.trim();
-                  final existing = await _friendRepo.getFriends(filter: newName);
+                  final existing =
+                      await _friendRepo.getFriends(filter: newName);
                   if (existing.any((friend) =>
                       friend['name'].toLowerCase() == newName.toLowerCase())) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('Friend "$newName" already exists.')),
+                      SnackBar(
+                          content: Text('Friend "$newName" already exists.')),
                     );
                     return;
                   }
@@ -602,8 +614,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final newName = controller.text.trim();
-                  final existing = await _categoryRepo.getSubCategories(categoryId,
-                      filter: newName);
+                  final existing = await _categoryRepo
+                      .getSubCategories(categoryId, filter: newName);
                   if (existing.any((sub) =>
                       sub['name'].toLowerCase() == newName.toLowerCase())) {
                     messenger.showSnackBar(
@@ -628,7 +640,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         if (_isFormDirty()) {
           final shouldPop = await _showDiscardDialog();
@@ -636,7 +648,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
             Navigator.pop(context);
           }
         } else {
-           if (mounted) {
+          if (mounted) {
             Navigator.pop(context);
           }
         }
@@ -645,9 +657,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         appBar: AppBar(
           title: Text(widget.isLoanToFriend
               ? 'Add Loan to Friend'
-              : (widget.isEditMode
-                  ? 'Edit Transaction'
-                  : 'Add Transactions')),
+              : (widget.isEditMode ? 'Edit Transaction' : 'Add Transactions')),
           actions: [
             if (_transactionForms.length > 1 && !widget.isEditMode)
               IconButton(
@@ -736,9 +746,11 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
   Widget _buildTransactionForm(TransactionFormState formState, int index) {
     final theme = Theme.of(context);
-    final isLoan = formState.type == 'Income' && formState.category?['name'] == AppConstants.kCatLoan;
+    final isLoan = formState.type == 'Income' &&
+        formState.category?['name'] == AppConstants.kCatLoan;
     final isExpense = formState.type == 'Expense';
-    final isFriendTransaction = formState.category?['name'] == AppConstants.kCatFriends;
+    final isFriendTransaction =
+        formState.category?['name'] == AppConstants.kCatFriends;
     final isFriendRepayment = formState.isFriendRepayment;
     final isDebtRepayment = formState.isDebtRepayment;
     final isSavingsWithdrawal = formState.isSavingsWithdrawal;
@@ -764,9 +776,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
         TextFormField(
           controller: formState.descriptionController,
           decoration: const InputDecoration(
-            labelText: 'Description (Optional)',
-            hintText: 'e.g., Lunch with colleagues'
-          ),
+              labelText: 'Description (Optional)',
+              hintText: 'e.g., Lunch with colleagues'),
         ),
         const SizedBox(height: 16),
         Card(
@@ -790,7 +801,8 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                   transitionBuilder: (child, animation) {
                     return FadeTransition(
                         opacity: animation,
-                        child: SizeTransition(sizeFactor: animation, child: child));
+                        child: SizeTransition(
+                            sizeFactor: animation, child: child));
                   },
                   child: Column(
                     key: ValueKey(formState.category?['name']),
@@ -820,7 +832,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                         ),
                       ],
                       if (isDebtRepayment) ...[
-                         const SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         DebtRepaymentSelector(
                           formState: formState,
                           onStateChanged: () => setState(() {}),
@@ -833,16 +845,20 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                           onStateChanged: () => setState(() {}),
                         ),
                       ],
-                      if (isExpense && !isLoan && !isFriendTransaction && !isDebtRepayment) ...[
+                      if (isExpense &&
+                          !isLoan &&
+                          !isFriendTransaction &&
+                          !isDebtRepayment) ...[
                         const SizedBox(height: 16),
                         ExpenseDetailsSection(
                           formState: formState,
                           onStateChanged: () {
-                             _calculateAndUpdateTotal(formState);
-                             setState(() {});
+                            _calculateAndUpdateTotal(formState);
+                            setState(() {});
                           },
                           syncSplits: _syncSplitsFromSubCategories,
-                          showAddDialog: ({required String title, required String label}) {
+                          showAddDialog: (
+                              {required String title, required String label}) {
                             return _showAddSubCategoryDialog(
                                 title, label, formState.category!['id']);
                           },

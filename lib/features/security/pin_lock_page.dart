@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,9 @@ class PinLockPageArgs {
 }
 
 class PinLockPage extends StatefulWidget {
+  // FIX: Add a static flag to prevent multiple instances of the lock screen.
+  static bool isLockScreenOpen = false;
+
   final PinLockMode mode;
   final VoidCallback? onPinCreated;
   final VoidCallback? onPinCorrect;
@@ -60,11 +64,13 @@ class _PinLockPageState extends State<PinLockPage>
   @override
   void initState() {
     super.initState();
+    // FIX: Set the flag to true when the page is initialized.
+    PinLockPage.isLockScreenOpen = true;
+
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    // Defines a shake animation for incorrect PIN feedback.
     _shakeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _shakeController,
@@ -79,11 +85,12 @@ class _PinLockPageState extends State<PinLockPage>
 
   @override
   void dispose() {
+    // FIX: Set the flag to false when the page is disposed.
+    PinLockPage.isLockScreenOpen = false;
     _shakeController.dispose();
     super.dispose();
   }
 
-  /// Checks for biometric capabilities and triggers authentication if applicable.
   Future<void> _checkBiometrics() async {
     bool canCheckBiometrics;
     try {
@@ -99,15 +106,13 @@ class _PinLockPageState extends State<PinLockPage>
 
     final useBiometrics = await _settingsRepo.getSetting('use_biometric') == 'true';
     
-    // Automatically trigger biometrics if enabled and in enter mode.
     if (_isBiometricAvailable && widget.mode == PinLockMode.enter && useBiometrics) {
       _authenticateWithBiometrics();
     }
   }
 
-  /// Initiates biometric authentication.
   Future<void> _authenticateWithBiometrics() async {
-    if (_isAuthenticating) return; // Prevent multiple concurrent attempts.
+    if (_isAuthenticating) return;
     
     if (mounted) {
       setState(() {
@@ -145,28 +150,23 @@ class _PinLockPageState extends State<PinLockPage>
     }
   }
 
-  /// Handles successful authentication by calling the callback and popping the screen.
   void _onSuccessfulAuthentication() {
     HapticFeedback.heavyImpact();
-    // Prioritize the callback to unlock the underlying page state.
     widget.onPinCorrect?.call();
     
-    // Navigate back to the previous screen (e.g., home page or onboarding).
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
   }
 
-  /// Handles number presses from the numpad.
   void _onNumberPress(String value) {
     HapticFeedback.lightImpact();
     if (_enteredPin.length < 4) {
       setState(() {
         _enteredPin += value;
-        _errorText = ''; // Clear error on new input.
+        _errorText = '';
       });
       if (_enteredPin.length == 4) {
-        // Short delay for user to see the last digit filled.
         Future.delayed(const Duration(milliseconds: 200), () {
           if (mounted) _handlePinSubmit(_enteredPin);
         });
@@ -174,7 +174,6 @@ class _PinLockPageState extends State<PinLockPage>
     }
   }
 
-  /// Handles backspace presses.
   void _onBackspacePress() {
     HapticFeedback.lightImpact();
     if (_enteredPin.isNotEmpty) {
@@ -185,7 +184,6 @@ class _PinLockPageState extends State<PinLockPage>
     }
   }
 
-  /// Triggers a shake animation and haptic feedback for incorrect PINs.
   Future<void> _triggerError() async {
     _shakeController.forward(from: 0);
     HapticFeedback.vibrate();
@@ -197,7 +195,6 @@ class _PinLockPageState extends State<PinLockPage>
     }
   }
 
-  /// Processes the submitted PIN for both create and enter modes.
   Future<void> _handlePinSubmit(String pin) async {
     setState(() {
       _errorText = '';
@@ -210,7 +207,6 @@ class _PinLockPageState extends State<PinLockPage>
     }
   }
   
-  /// Handles the logic for creating a new PIN.
   Future<void> _handleCreatePin(String pin) async {
       if (!_isConfirming) {
         HapticFeedback.mediumImpact();
@@ -222,7 +218,6 @@ class _PinLockPageState extends State<PinLockPage>
       } else {
         if (pin == _firstPin) {
           await _settingsRepo.savePin(pin);
-          // After saving, call the onPinCreated callback which should handle navigation.
           widget.onPinCreated?.call();
         } else {
           setState(() {
@@ -235,7 +230,6 @@ class _PinLockPageState extends State<PinLockPage>
       }
   }
 
-  /// Handles the logic for verifying an existing PIN.
   Future<void> _handleEnterPin(String pin) async {
       final savedPin = await _settingsRepo.getPin();
       if (savedPin == pin) {
@@ -248,7 +242,6 @@ class _PinLockPageState extends State<PinLockPage>
       }
   }
 
-  /// Gets the appropriate title for the screen based on the mode.
   String _getSubtitle() {
     if (widget.title != null) return widget.title!;
 
@@ -262,18 +255,53 @@ class _PinLockPageState extends State<PinLockPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settingsProvider = context.watch<SettingsProvider>();
+    final profileImageBase64 = settingsProvider.profileImageBase64;
 
     return PopScope(
-      canPop: false, // Prevents user from accidentally backing out.
+      canPop: false,
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Image.asset(
+              'assets/icon/flynse.png',
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.wallet_outlined,
+                  color: theme.colorScheme.primary,
+                );
+              },
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                backgroundImage: profileImageBase64 != null
+                    ? MemoryImage(base64Decode(profileImageBase64))
+                    : null,
+                child: profileImageBase64 == null && settingsProvider.userName.isNotEmpty
+                    ? Text(
+                        settingsProvider.userName[0].toUpperCase(),
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      )
+                    : null,
+              ),
+            ),
+          ],
+        ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               children: [
                 Expanded(
-                  flex: 2,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -286,7 +314,7 @@ class _PinLockPageState extends State<PinLockPage>
                         _getSubtitle(),
                         style: theme.textTheme.titleMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
                       ),
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 40),
                       AnimatedBuilder(
                         animation: _shakeAnimation,
                         builder: (context, child) {
@@ -298,29 +326,27 @@ class _PinLockPageState extends State<PinLockPage>
                         },
                         child: _buildPinIndicators(theme),
                       ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 20,
-                        child: Center(
-                          child: _errorText.isNotEmpty
-                              ? Text(
-                                  _errorText,
-                                  style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
-                                  textAlign: TextAlign.center,
-                                )
-                              : null,
+                      const SizedBox(height: 24),
+                      if (_errorText.isNotEmpty)
+                        Text(
+                          _errorText,
+                          style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
+                          textAlign: TextAlign.center,
+                        )
+                      else if (_isBiometricAvailable && widget.mode == PinLockMode.enter)
+                        TextButton.icon(
+                          icon: Icon(Icons.fingerprint, color: theme.colorScheme.primary),
+                          label: Text(
+                            'Use fingerprint',
+                            style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _authenticateWithBiometrics,
                         ),
-                      ),
                     ],
                   ),
                 ),
-                Expanded(
-                  flex: 3,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _buildNumberPad(),
-                  ),
-                ),
+                _buildNumberPad(),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -329,39 +355,50 @@ class _PinLockPageState extends State<PinLockPage>
     );
   }
 
-  /// Builds the styled PIN indicators.
   Widget _buildPinIndicators(ThemeData theme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(4, (index) {
         bool isActive = index < _enteredPin.length;
         bool hasError = _errorText.isNotEmpty;
-        Color color = hasError 
-            ? theme.colorScheme.error 
-            : isActive ? theme.colorScheme.primary : theme.dividerColor;
-
+        
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          width: 18,
-          height: 18,
+          margin: const EdgeInsets.symmetric(horizontal: 10),
+          width: 50,
+          height: 60,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
+            color: isActive ? theme.colorScheme.primary.withAlpha(26) : theme.colorScheme.surfaceContainer,
+            border: Border.all(
+              color: hasError ? theme.colorScheme.error : (isActive ? theme.colorScheme.primary : theme.dividerColor),
+              width: 1.5,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: isActive
+                ? Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: hasError ? theme.colorScheme.error : theme.colorScheme.primary,
+                    ),
+                  )
+                : null,
           ),
         );
       }),
     );
   }
 
-  /// Builds the modern, well-styled numpad.
   Widget _buildNumberPad() {
     final List<String> keys = [
       '1', '2', '3',
       '4', '5', '6',
       '7', '8', '9',
-      'biometric', '0', 'backspace'
+      '.', '0', 'backspace'
     ];
 
     return GridView.builder(
@@ -370,20 +407,14 @@ class _PinLockPageState extends State<PinLockPage>
       itemCount: keys.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 24,
-        mainAxisSpacing: 16,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.5,
       ),
       itemBuilder: (context, index) {
         final key = keys[index];
-        if (key == 'biometric') {
-          // Show biometric button only if available and in enter mode.
-          return _isBiometricAvailable && widget.mode == PinLockMode.enter
-              ? _buildNumpadButton(
-                  '',
-                  icon: Icons.fingerprint,
-                  onPressed: _authenticateWithBiometrics,
-                )
-              : const SizedBox.shrink(); // Placeholder
+        if (key == '.') {
+          return const SizedBox.shrink(); // Placeholder for the dot
         }
         if (key == 'backspace') {
           return _buildNumpadButton(
@@ -397,29 +428,20 @@ class _PinLockPageState extends State<PinLockPage>
     );
   }
 
-  /// Builds a single, styled button for the numpad.
   Widget _buildNumpadButton(String value, {IconData? icon, VoidCallback? onPressed}) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onPressed ?? () => _onNumberPress(value),
-      customBorder: const CircleBorder(),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: theme.colorScheme.surfaceContainerHighest,
-        ),
-        child: Center(
-          child: icon != null
-              ? Icon(icon, size: 28, color: theme.colorScheme.onSurface)
-              : Text(
-                  value,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w400,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-        ),
+    return TextButton(
+      onPressed: onPressed ?? () => _onNumberPress(value),
+      style: TextButton.styleFrom(
+        shape: const CircleBorder(),
+        foregroundColor: theme.colorScheme.onSurface,
       ),
+      child: icon != null
+          ? Icon(icon, size: 24)
+          : Text(
+              value,
+              style: theme.textTheme.headlineMedium,
+            ),
     );
   }
 }

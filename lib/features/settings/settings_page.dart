@@ -284,7 +284,7 @@ class _SettingsPageState extends State<SettingsPage>
       return;
     }
 
-    final currentContext = this.context;
+    final currentContext = context;
     final navigator = Navigator.of(currentContext);
 
     final confirmed = await showDialog<bool>(

@@ -75,6 +75,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _checkPinAndLock() async {
+    // FIX: Prevents pushing multiple lock screens by checking a static flag.
+    if (PinLockPage.isLockScreenOpen) return;
+
     final settingsRepo = SettingsRepository();
     final pinExists = await settingsRepo.getPin() != null;
 
