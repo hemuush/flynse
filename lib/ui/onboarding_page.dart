@@ -15,9 +15,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
-// Enum to represent the user's primary goal
-enum UserGoal { trackSpending, saveForGoal, manageDebts }
-
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -31,7 +28,6 @@ class _OnboardingPageState extends State<OnboardingPage>
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   File? _profileImageFile;
-  UserGoal? _selectedGoal;
 
   late AnimationController _animationController;
   bool _isButtonEnabled = false;
@@ -83,20 +79,12 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 
   Future<void> _completeOnboarding() async {
-    if (_selectedGoal == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a goal to continue.')),
-      );
-      return;
-    }
-
     final appProvider = context.read<AppProvider>();
     final settingsProvider = context.read<SettingsProvider>();
     final navigator = Navigator.of(context);
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_name', _nameController.text);
-    await prefs.setString('user_main_goal', _selectedGoal!.name);
     await prefs.setBool('has_opened_before', true); // Mark onboarding as complete
 
     if (_profileImageFile != null) {
@@ -104,7 +92,7 @@ class _OnboardingPageState extends State<OnboardingPage>
       final base64Image = base64Encode(bytes);
       await _settingsRepo.saveProfileImage(base64Image);
     }
-    
+
     await settingsProvider.loadUserNameAndProfile();
     await appProvider.refreshAllData();
 
@@ -118,7 +106,8 @@ class _OnboardingPageState extends State<OnboardingPage>
           onPinCreated: () {
             // After PIN is set, go to the home page.
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const MyHomePage(isFirstLaunch: true)), // MODIFIED: Pass the parameter here
+              MaterialPageRoute(
+                  builder: (context) => const MyHomePage(isFirstLaunch: true)),
               (route) => false,
             );
           },
@@ -235,7 +224,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                   physics: const NeverScrollableScrollPhysics(), // Disable swiping
                   children: [
                     _buildNamePage(theme),
-                    _buildGoalPage(theme),
+                    _buildInfoPage(theme), // MODIFIED: Changed to info page
                   ],
                 ),
               ),
@@ -370,8 +359,8 @@ class _OnboardingPageState extends State<OnboardingPage>
     );
   }
 
-  // The second page of the onboarding flow
-  Widget _buildGoalPage(ThemeData theme) {
+  // The second, informational page of the onboarding flow
+  Widget _buildInfoPage(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32.0),
       child: Column(
@@ -379,99 +368,106 @@ class _OnboardingPageState extends State<OnboardingPage>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 50),
-          Text(
-            'What\'s your main goal?',
-            textAlign: TextAlign.center,
-            style:
-                theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+          _buildAnimatedWidget(
+            interval: const Interval(0.0, 0.6),
+            child: Text(
+              'Welcome, ${_nameController.text.trim()}!',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 16),
-          Text(
-            'This will help us personalize your experience.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(color: theme.textTheme.bodySmall?.color),
+          _buildAnimatedWidget(
+            interval: const Interval(0.2, 0.8),
+            child: Text(
+              'Flynse helps you take control of your finances. Here\'s how:',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(color: theme.textTheme.bodySmall?.color),
+            ),
           ),
           const SizedBox(height: 48),
-          _buildGoalOption(
-            theme: theme,
-            icon: Icons.track_changes_outlined,
-            title: 'Track Spending',
-            subtitle: 'Get a clear view of where your money goes.',
-            value: UserGoal.trackSpending,
+          _buildAnimatedWidget(
+            interval: const Interval(0.4, 1.0),
+            child: _buildFeatureCard(
+              theme: theme,
+              icon: Icons.track_changes_outlined,
+              title: 'Track Spending & Income',
+              subtitle: 'Get a clear view of where your money goes and comes from.',
+            ),
           ),
           const SizedBox(height: 16),
-          _buildGoalOption(
-            theme: theme,
-            icon: Icons.savings_outlined,
-            title: 'Save for a Goal',
-            subtitle: 'Set and reach your financial targets.',
-            value: UserGoal.saveForGoal,
+          _buildAnimatedWidget(
+            interval: const Interval(0.5, 1.0),
+            child: _buildFeatureCard(
+              theme: theme,
+              icon: Icons.savings_outlined,
+              title: 'Achieve Savings Goals',
+              subtitle: 'Set and reach your financial targets, big or small.',
+            ),
           ),
           const SizedBox(height: 16),
-          _buildGoalOption(
-            theme: theme,
-            icon: Icons.receipt_long_outlined,
-            title: 'Manage Debts',
-            subtitle: 'Take control of your loans and payments.',
-            value: UserGoal.manageDebts,
+          _buildAnimatedWidget(
+            interval: const Interval(0.6, 1.0),
+            child: _buildFeatureCard(
+              theme: theme,
+              icon: Icons.receipt_long_outlined,
+              title: 'Manage Debts & Friends',
+              subtitle:
+                  'Take control of loans and easily track money shared with friends.',
+            ),
           ),
           const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: _completeOnboarding,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          _buildAnimatedWidget(
+            interval: const Interval(0.8, 1.0),
+            child: ElevatedButton(
+              onPressed: _completeOnboarding,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              child: const Text('Finish Setup & Create PIN'),
             ),
-            child: const Text('Finish Setup'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGoalOption({
+  Widget _buildFeatureCard({
     required ThemeData theme,
     required IconData icon,
     required String title,
     required String subtitle,
-    required UserGoal value,
   }) {
-    final bool isSelected = _selectedGoal == value;
     return Card(
-      color: isSelected
-          ? theme.colorScheme.primary.withAlpha(25)
-          : null,
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isSelected
-            ? BorderSide(color: theme.colorScheme.primary, width: 2)
-            : BorderSide.none,
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: InkWell(
-        onTap: () => setState(() => _selectedGoal = value),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Icon(icon, size: 40, color: theme.colorScheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    Text(subtitle, style: theme.textTheme.bodyMedium),
-                  ],
-                ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            Icon(icon, size: 40, color: theme.colorScheme.primary),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: theme.textTheme.bodyMedium),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

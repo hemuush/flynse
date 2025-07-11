@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flynse/core/data/repositories/debt_repository.dart';
 import 'package:flynse/core/data/repositories/friend_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/features/settings/friend_history_page.dart';
@@ -14,7 +13,6 @@ class ManageFriendsPage extends StatefulWidget {
 
 class _ManageFriendsPageState extends State<ManageFriendsPage> {
   final FriendRepository _friendRepo = FriendRepository();
-  final DebtRepository _debtRepo = DebtRepository(); // Use DebtRepository for debt checks
   late Future<List<Map<String, dynamic>>> _friendsFuture;
 
   @override
@@ -71,15 +69,14 @@ class _ManageFriendsPageState extends State<ManageFriendsPage> {
   }
 
   Future<void> _deleteFriend(int id, String name) async {
-    // Check for pending debts before allowing deletion
-    final hasPending = await _debtRepo.hasPendingDebtsForFriend(id);
+    // Corrected: Use the FriendRepository to check for pending debts.
+    final hasPending = await _friendRepo.hasPendingDebtsForFriend(id);
+    
     if (!mounted) return;
-
-    final dialogContext = context;
 
     if (hasPending) {
       showDialog(
-        context: dialogContext,
+        context: context,
         builder: (context) => AlertDialog(
           title: Text('Cannot Delete $name'),
           content: const Text(
@@ -96,7 +93,7 @@ class _ManageFriendsPageState extends State<ManageFriendsPage> {
     }
 
     final confirmed = await showDialog<bool>(
-      context: dialogContext,
+      context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete $name?'),
         content: const Text(
@@ -117,7 +114,6 @@ class _ManageFriendsPageState extends State<ManageFriendsPage> {
 
     if (confirmed == true) {
       await _friendRepo.deleteFriend(id);
-      // FIX: Refresh all provider data to ensure consistency across the app.
       if (mounted) {
         await context.read<AppProvider>().refreshAllData();
       }

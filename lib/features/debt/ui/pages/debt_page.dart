@@ -6,7 +6,7 @@ class DebtPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The segmented button is removed, and this page now only shows user debts.
-    return const DebtListView(isUserDebtor: true);
+    // This page now exclusively shows the user's personal debts.
+    return const DebtListView();
   }
 }

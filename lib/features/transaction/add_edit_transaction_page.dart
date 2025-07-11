@@ -3,6 +3,7 @@ import 'package:flynse/core/data/repositories/category_repository.dart';
 import 'package:flynse/core/data/repositories/friend_repository.dart';
 import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/core/providers/transaction_provider.dart';
 import 'package:flynse/features/transaction/widgets/add_transaction_widgets.dart';
 import 'package:flynse/features/transaction/widgets/debt_repayment_selector.dart';
@@ -18,14 +19,14 @@ class AddEditTransactionPage extends StatefulWidget {
   final Map<String, dynamic>? transaction;
   final bool isSaving;
   final bool isLoanToFriend;
-  final bool isGenericLoan; // --- NEW ---
+  final bool isGenericLoan;
 
   const AddEditTransactionPage({
     super.key,
     this.transaction,
     this.isSaving = false,
     this.isLoanToFriend = false,
-    this.isGenericLoan = false, // --- NEW ---
+    this.isGenericLoan = false,
   });
 
   bool get isEditMode => transaction != null;
@@ -69,7 +70,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
   }
 
   bool _isFormDirty() {
-    if (widget.isEditMode) return false; // Only for new transactions
+    if (widget.isEditMode) return false;
 
     for (final form in _transactionForms) {
       if (form.amountController.text.isNotEmpty ||
@@ -111,7 +112,6 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
   void _initializeFirstForm() {
     DateTime initialDate;
 
-    // --- MODIFIED: Added isGenericLoan check ---
     final String initialType = widget.isSaving
         ? 'Saving'
         : (widget.isLoanToFriend
@@ -135,7 +135,6 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
     final subCategoryString = widget.transaction?['sub_category'] as String?;
     final subCategories = subCategoryString?.split(',').where((s) => s.isNotEmpty).toList() ?? [];
 
-    // --- MODIFIED: Added isGenericLoan check for category ---
     _addTransactionForm(
       type: initialType,
       categoryName: widget.isLoanToFriend
@@ -313,6 +312,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
     final appProvider = context.read<AppProvider>();
     final transactionProvider = context.read<TransactionProvider>();
     final debtProvider = context.read<DebtProvider>();
+    final friendProvider = context.read<FriendProvider>();
     final navigator = Navigator.of(context);
 
     final List<Map<String, dynamic>> allTransactions = [];
@@ -401,7 +401,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
           return;
         }
         final debt = form.selectedDebtForRepayment!;
-        await debtProvider.addRepaymentFromFriend(
+        await friendProvider.addRepaymentFromFriend(
           debt['id'],
           'Payment from: ${debt['name']}',
           double.parse(form.amountController.text),
@@ -626,13 +626,20 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
         if (_isFormDirty()) {
           final shouldPop = await _showDiscardDialog();
-          return shouldPop;
+          if (shouldPop && mounted) {
+            Navigator.pop(context);
+          }
+        } else {
+           if (mounted) {
+            Navigator.pop(context);
+          }
         }
-        return true;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -776,7 +783,7 @@ class _AddEditTransactionPageState extends State<AddEditTransactionPage> {
                   onStateChanged: () => setState(() {}),
                   showAddDialog: (context, {required title, required label}) =>
                       _showAddCategoryDialog(title, label, formState.type),
-                  isLocked: widget.isLoanToFriend || widget.isGenericLoan, // --- MODIFIED ---
+                  isLocked: widget.isLoanToFriend || widget.isGenericLoan,
                 ),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),

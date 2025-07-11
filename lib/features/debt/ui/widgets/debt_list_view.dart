@@ -1,28 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
-import 'package:flynse/core/providers/friend_provider.dart';
-import 'package:flynse/features/debt/ui/pages/closed_loans_page.dart';
+import 'package:flynse/features/debt/ui/pages/closed_debts_page.dart';
 import 'package:flynse/features/debt/ui/widgets/debt_card.dart';
 import 'package:flynse/features/debt/ui/widgets/total_debt_card.dart';
 import 'package:provider/provider.dart';
 
+/// A widget that displays a list of the user's personal debts.
+/// It no longer handles friend-related loans.
 class DebtListView extends StatelessWidget {
-  final bool isUserDebtor;
-
-  const DebtListView({super.key, required this.isUserDebtor});
+  const DebtListView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // This widget now conditionally builds its UI based on the context
-    // by consuming from either the DebtProvider or the new FriendProvider.
-    if (isUserDebtor) {
-      return _buildUserDebtView(context);
-    } else {
-      return _buildFriendLoanView(context);
-    }
-  }
-
-  Widget _buildUserDebtView(BuildContext context) {
     return Consumer<DebtProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading) {
@@ -37,22 +26,6 @@ class DebtListView extends StatelessWidget {
     );
   }
 
-  Widget _buildFriendLoanView(BuildContext context) {
-    return Consumer<FriendProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        // FIX: Changed friendLoans to loansToFriends to match the provider.
-        return _buildContent(
-          context,
-          provider.loansToFriends,
-          provider.totalOwedToUser,
-        );
-      },
-    );
-  }
-
   Widget _buildContent(
       BuildContext context, List<Map<String, dynamic>> activeDebts, double totalValue) {
     final theme = Theme.of(context);
@@ -62,9 +35,9 @@ class DebtListView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
       children: [
         TotalDebtCard(
-          title: isUserDebtor ? 'Total You Owe' : 'Total Owed to You',
+          title: 'Total You Owe',
           total: totalValue,
-          isUserDebtor: isUserDebtor,
+          isUserDebtor: true, // This card is always for user debts now
         ),
         const SizedBox(height: 16),
         Card(
@@ -80,8 +53,9 @@ class DebtListView extends StatelessWidget {
           child: InkWell(
             onTap: () {
               Navigator.of(context).push(MaterialPageRoute(
+                // Navigate to the page showing only closed personal debts.
                 builder: (context) =>
-                    ClosedLoansPage(isUserDebtorFilter: isUserDebtor),
+                    const ClosedDebtsPage(),
               ));
             },
             borderRadius: BorderRadius.circular(16),
@@ -100,19 +74,17 @@ class DebtListView extends StatelessWidget {
           ),
         ),
         if (activeDebts.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 48.0),
+          const Padding(
+            padding: EdgeInsets.only(top: 48.0),
             child: Center(
               child: Text(
-                isUserDebtor
-                    ? 'You have no active debts. Tap + to add one.'
-                    : 'No one owes you money right now.',
+                'You have no active debts. Tap + to add one.',
                 textAlign: TextAlign.center,
               ),
             ),
           )
         else ...[
-          _buildListHeader('Active', theme),
+          _buildListHeader('Active Debts', theme),
           ...activeDebts.map((debt) => DebtCard(key: ValueKey(debt['id']), debt: debt)),
         ],
       ],

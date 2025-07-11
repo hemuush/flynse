@@ -6,10 +6,11 @@ import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/features/debt/ui/pages/debt_schedule_page.dart';
 import 'package:flynse/features/debt/ui/pages/repayment_history_page.dart';
-import 'package:flynse/features/settings/friend_history_page.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+/// A card widget to display details of a single personal debt.
+/// Friend-related logic has been removed.
 class DebtCard extends StatefulWidget {
   final Map<String, dynamic> debt;
 
@@ -84,7 +85,6 @@ class _DebtCardState extends State<DebtCard> {
   Widget _buildCardContent(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final isUserDebtor = widget.debt['is_user_debtor'] == 1;
     final isCompleted = widget.debt['is_closed'] == 1;
 
     final double totalAmount = widget.debt['total_amount'] as double;
@@ -150,9 +150,7 @@ class _DebtCardState extends State<DebtCard> {
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   valueColor: AlwaysStoppedAnimation<Color>(isCompleted
                       ? theme.colorScheme.tertiary
-                      : (isUserDebtor
-                          ? theme.colorScheme.secondary
-                          : theme.colorScheme.tertiary)),
+                      : theme.colorScheme.secondary),
                 ),
               ),
               const SizedBox(height: 8),
@@ -160,9 +158,7 @@ class _DebtCardState extends State<DebtCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                      isUserDebtor
-                          ? 'Paid: $formattedAmountPaid'
-                          : 'Received: $formattedAmountPaid',
+                      'Paid: $formattedAmountPaid',
                       style: theme.textTheme.bodySmall),
                   Text('Total: $formattedTotalAmount',
                       style: theme.textTheme.bodySmall
@@ -200,102 +196,53 @@ class _DebtCardState extends State<DebtCard> {
 
   Widget _buildExpandedDetails(BuildContext context) {
     final theme = Theme.of(context);
-    final isUserDebtor = widget.debt['is_user_debtor'] == 1;
     final nf =
         NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
-    final friendId = widget.debt['friend_id'] as int?;
-    VoidCallback onViewHistoryPressed;
+    final principal = widget.debt['principal_amount'] as double;
+    final totalAmount = widget.debt['total_amount'] as double;
+    final interestAdded = totalAmount - principal;
+    final remainingAmount =
+        totalAmount - (widget.debt['amount_paid'] as double);
 
-    if (friendId != null) {
-      onViewHistoryPressed = () {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => FriendHistoryPage(
-            friendId: friendId,
-            friendName: widget.debt['name'],
-          ),
-        ));
-      };
-    } else {
-      onViewHistoryPressed = () {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => RepaymentHistoryPage(debt: widget.debt),
-        ));
-      };
-    }
-
-    if (isUserDebtor) {
-      final principal = widget.debt['principal_amount'] as double;
-      final totalAmount = widget.debt['total_amount'] as double;
-      final interestAdded = totalAmount - principal;
-      final remainingAmount =
-          totalAmount - (widget.debt['amount_paid'] as double);
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Divider(height: 24),
-          _buildDetailRow(theme, "Principal Amount", nf.format(principal)),
-          if (interestAdded > 0)
-            _buildDetailRow(
-                theme, "Interest Added to Date", nf.format(interestAdded)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 24),
+        _buildDetailRow(theme, "Principal Amount", nf.format(principal)),
+        if (interestAdded > 0)
           _buildDetailRow(
-              theme, "Remaining Amount", nf.format(remainingAmount)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.history_rounded, size: 18),
-                label: const Text('View History'),
-                onPressed: onViewHistoryPressed,
-              ),
-              Row(
-                children: [
-                  _buildPopupMenu(context),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    icon: const Icon(Icons.payment, size: 18),
-                    label: const Text('Pay'),
-                    onPressed: () => _showPaymentDialog(context, widget.debt),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      );
-    } else {
-      final totalAmount = widget.debt['total_amount'] as double;
-      final amountReceived = widget.debt['amount_paid'] as double;
-      final remainingAmount = totalAmount - amountReceived;
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Divider(height: 24),
-          _buildDetailRow(
-              theme, "Remaining Amount", nf.format(remainingAmount)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.history_rounded, size: 18),
-                label: const Text('View History'),
-                onPressed: onViewHistoryPressed,
-              ),
-              FilledButton.tonalIcon(
-                icon: const Icon(Icons.add_card_rounded, size: 18),
-                label: const Text('Receive Payment'),
-                onPressed: () =>
-                    _showReceivePaymentDialog(context, widget.debt),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
+              theme, "Interest Added to Date", nf.format(interestAdded)),
+        _buildDetailRow(
+            theme, "Remaining Amount", nf.format(remainingAmount)),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton.icon(
+              icon: const Icon(Icons.history_rounded, size: 18),
+              label: const Text('View History'),
+              onPressed: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => RepaymentHistoryPage(debt: widget.debt),
+                  ));
+              },
+            ),
+            Row(
+              children: [
+                _buildPopupMenu(context),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  icon: const Icon(Icons.payment, size: 18),
+                  label: const Text('Pay'),
+                  onPressed: () => _showPaymentDialog(context, widget.debt),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildPopupMenu(BuildContext context) {
@@ -546,8 +493,6 @@ class _DebtCardState extends State<DebtCard> {
     final loanStartPeriod = DateTime(loanStartDate.year, loanStartDate.month);
     final isLoanActiveInSelectedPeriod = !selectedPeriodDate.isBefore(loanStartPeriod);
 
-    // FIX: The EMI value is now trusted to be correct in the database.
-    // If it's null, it defaults to 0.0.
     final double currentEmi = (latestDebt['current_emi'] as double?) ?? 0.0;
     final totalAmount = latestDebt['total_amount'] as double;
     final amountPaid = latestDebt['amount_paid'] as double;
@@ -757,74 +702,6 @@ class _DebtCardState extends State<DebtCard> {
         );
       },
     );
-  }
-
-  void _showReceivePaymentDialog(
-      BuildContext context, Map<String, dynamic> debt) {
-    // This dialog is for when a friend pays you back
-    final amountController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final debtProvider = context.read<DebtProvider>();
-    final appProvider = context.read<AppProvider>();
-
-    final totalAmount = debt['total_amount'] as double;
-    final amountPaid = debt['amount_paid'] as double;
-    final remainingAmount = totalAmount - amountPaid;
-
-    final now = DateTime.now();
-    final transactionDate =
-        (appProvider.selectedYear == now.year && appProvider.selectedMonth == now.month)
-            ? now
-            : DateTime(appProvider.selectedYear, appProvider.selectedMonth, 1);
-
-    showDialog(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: Text('Receive Payment from ${debt['name']}'),
-            content: Form(
-              key: formKey,
-              child: TextFormField(
-                controller: amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration:
-                    const InputDecoration(labelText: 'Amount Received'),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Enter amount';
-                  final amount = double.tryParse(v);
-                  if (amount == null) return 'Invalid number';
-                  if (amount <= 0) return 'Amount must be positive';
-                  if (amount > remainingAmount + 0.01) { // Add tolerance
-                     return 'Amount cannot exceed what is owed (${NumberFormat.simpleCurrency(locale: 'en_IN').format(remainingAmount)})';
-                  }
-                  return null;
-                },
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    Navigator.of(dialogContext).pop();
-                    final amount = double.parse(amountController.text);
-                    await debtProvider.addRepaymentFromFriend(
-                        debt['id'],
-                        'Payment from ${debt['name']}',
-                        amount,
-                        transactionDate);
-                    await appProvider.refreshAllData();
-                  }
-                },
-                child: const Text('Receive'),
-              ),
-            ],
-          );
-        });
   }
 
   Future<String?> _showPrepaymentChoiceDialog(BuildContext context) async {

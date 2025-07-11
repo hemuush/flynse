@@ -1,10 +1,10 @@
 import 'dart:math';
-
 import 'package:flynse/core/data/database_helper.dart';
 import 'package:flynse/features/debt/data/services/amortization_calculator.dart';
 import 'package:sqflite/sqflite.dart';
 
-/// Repository for handling all debt and loan-related database queries.
+/// Repository for handling all PERSONAL debt and loan-related database queries.
+/// Friend-related debt logic has been moved to FriendRepository.
 class DebtRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
@@ -12,10 +12,11 @@ class DebtRepository {
 
   Future<void> applyAnnualInterest() async {
     final db = await _database;
+    // This logic correctly targets only non-term, interest-bearing personal debts.
     final activeLoans = await db.query(
       'debts',
       where:
-          'is_closed = 0 AND is_user_debtor = 1 AND interest_rate > 0 AND (loan_term_years IS NULL OR loan_term_years = 0)',
+          'is_closed = 0 AND is_user_debtor = 1 AND interest_rate > 0 AND (loan_term_years IS NULL OR loan_term_years = 0) AND friend_id IS NULL',
     );
 
     final now = DateTime.now();
@@ -64,6 +65,7 @@ class DebtRepository {
     return emi.roundToDouble();
   }
 
+  /// Adds a new PERSONAL debt to the database.
   Future<int> addDebt(Map<String, dynamic> debtData) async {
     final db = await _database;
     return await db.transaction((txn) async {
@@ -104,7 +106,8 @@ class DebtRepository {
         'interest_rate': interestRate,
         'loan_term_years': termInYears,
         'creation_date': loanStartDateStr,
-        'is_user_debtor': 1,
+        'is_user_debtor': 1, // Always a user debt
+        'friend_id': null, // Explicitly null for personal debts
         'is_emi_purchase': isEmiPurchase ? 1 : 0,
         'purchase_description': purchaseDescription,
         'current_emi': initialEmi > 0 ? initialEmi : null,
@@ -136,6 +139,7 @@ class DebtRepository {
     });
   }
 
+  /// Adds a repayment for a PERSONAL debt.
   Future<void> addRepaymentWithDate(
       int debtId, String description, double amount, DateTime date,
       {String? prepaymentOption}) async {
@@ -235,52 +239,18 @@ class DebtRepository {
     });
   }
 
-  /// MODIFIED: This method now has an additional filter to fetch only non-friend debts.
-  Future<List<Map<String, dynamic>>> getDebts({
-    required bool isUserDebtor,
-    bool isClosed = false,
-    bool nonFriendDebtsOnly = false,
-  }) async {
-    final db = await _database;
-    String whereClause = 'is_user_debtor = ? AND is_closed = ?';
-    List<dynamic> whereArgs = [isUserDebtor ? 1 : 0, isClosed ? 1 : 0];
-
-    if (nonFriendDebtsOnly) {
-      whereClause += ' AND friend_id IS NULL';
-    }
-
-    return db.query(
-      'debts',
-      where: whereClause,
-      whereArgs: whereArgs,
-      orderBy: '(total_amount - amount_paid) DESC',
-    );
-  }
-
-  /// NEW: Fetches all debts associated with friends.
-  Future<List<Map<String, dynamic>>> getFriendDebts({bool isClosed = false}) async {
+  /// Fetches personal debts (where friend_id is NULL).
+  Future<List<Map<String, dynamic>>> getDebts({bool isClosed = false}) async {
     final db = await _database;
     return db.query(
       'debts',
-      where: 'friend_id IS NOT NULL AND is_closed = ?',
+      where: 'is_user_debtor = 1 AND is_closed = ? AND friend_id IS NULL',
       whereArgs: [isClosed ? 1 : 0],
       orderBy: '(total_amount - amount_paid) DESC',
     );
   }
 
-  /// NEW: Checks if a friend has any pending (unclosed) debts.
-  Future<bool> hasPendingDebtsForFriend(int friendId) async {
-    final db = await _database;
-    final result = await db.query(
-      'debts',
-      where: 'friend_id = ? AND is_closed = 0',
-      whereArgs: [friendId],
-      limit: 1,
-    );
-    return result.isNotEmpty;
-  }
-
-  /// MODIFICATION: This method now recalculates the EMI when loan details are updated.
+  /// Updates the details of a personal loan.
   Future<void> updateDebtInfo({
     required int debtId,
     double? newInterestRate,
@@ -295,7 +265,6 @@ class DebtRepository {
       final existingDebt = existingDebtList.first;
       final principal = existingDebt['principal_amount'] as double;
 
-      // Use new values if provided, otherwise fallback to existing values
       final interestRate = newInterestRate ?? existingDebt['interest_rate'] as double?;
       final termYears = newTermYears ?? existingDebt['loan_term_years'] as int?;
 
@@ -316,38 +285,7 @@ class DebtRepository {
     });
   }
 
-  Future<void> addRepaymentFromFriend(
-      int debtId, String description, double amount, DateTime date) async {
-    final db = await _database;
-    await db.transaction((txn) async {
-      await txn.insert('transactions', {
-        'description': description,
-        'amount': amount,
-        'type': 'Income',
-        'category': 'Friend Repayment',
-        'transaction_date': date.toIso8601String(),
-        'debt_id': debtId
-      });
-
-      await txn.rawUpdate('''
-        UPDATE debts
-        SET amount_paid = amount_paid + ?
-        WHERE id = ?
-      ''', [amount, debtId]);
-
-      final result =
-          await txn.query('debts', where: 'id = ?', whereArgs: [debtId]);
-      if (result.isNotEmpty) {
-        final debt = result.first;
-        if ((debt['amount_paid'] as num) >=
-            (debt['total_amount'] as num) - 0.01) {
-          await txn.update('debts', {'is_closed': 1},
-              where: 'id = ?', whereArgs: [debtId]);
-        }
-      }
-    });
-  }
-
+  /// Forecloses a personal debt.
   Future<void> forecloseDebt(int debtId, String debtName, DateTime date,
       {double? foreclosurePenaltyPercentage}) async {
     final db = await _database;
@@ -359,7 +297,6 @@ class DebtRepository {
         final totalAmount = debt['total_amount'] as double;
         final amountPaid = debt['amount_paid'] as double;
         final remainingAmount = totalAmount - amountPaid;
-        final isUserDebtor = debt['is_user_debtor'] == 1;
 
         double finalPayment = remainingAmount;
         String description = 'Foreclosure for: $debtName';
@@ -376,8 +313,8 @@ class DebtRepository {
           await txn.insert('transactions', {
             'description': description,
             'amount': finalPayment.roundToDouble(),
-            'type': isUserDebtor ? 'Expense' : 'Income',
-            'category': isUserDebtor ? 'Debt Repayment' : 'Friend Repayment',
+            'type': 'Expense',
+            'category': 'Debt Repayment',
             'transaction_date': date.toIso8601String(),
             'debt_id': debtId
           });
@@ -395,6 +332,7 @@ class DebtRepository {
     });
   }
 
+  /// Deletes a personal debt and its associated transactions.
   Future<void> deleteDebtAndTransactions(int debtId) async {
     final db = await _database;
     await db.transaction((txn) async {
@@ -404,16 +342,17 @@ class DebtRepository {
     });
   }
 
+  /// Fetches repayment history for a PERSONAL debt.
   Future<List<Map<String, dynamic>>> getRepaymentHistory(int debtId,
       {Transaction? txn}) async {
     final db = txn ?? await _database;
     return db.query('transactions',
-        where: 'debt_id = ? AND (category = ? OR category = ?)',
-        whereArgs: [debtId, 'Debt Repayment', 'Friend Repayment'],
+        where: 'debt_id = ? AND category = ?',
+        whereArgs: [debtId, 'Debt Repayment'],
         orderBy: 'transaction_date ASC, id ASC');
   }
 
-  /// MODIFIED: This now only calculates pending debt for non-friend loans.
+  /// Calculates total pending PERSONAL debt.
   Future<double> getTotalPendingDebt() async {
     final db = await _database;
     final result = await db.rawQuery(

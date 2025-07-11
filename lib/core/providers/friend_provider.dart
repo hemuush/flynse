@@ -1,14 +1,14 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:flynse/core/data/repositories/debt_repository.dart';
+import 'package:flynse/core/data/repositories/friend_repository.dart';
 
 class FriendProvider with ChangeNotifier {
-  final DebtRepository _debtRepo = DebtRepository();
+  // Corrected: Use FriendRepository instead of DebtRepository
+  final FriendRepository _friendRepo = FriendRepository();
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
-  // MODIFIED: Now holds separate lists for different debt types.
   List<Map<String, dynamic>> _loansToFriends = [];
   List<Map<String, dynamic>> get loansToFriends => _loansToFriends;
 
@@ -21,7 +21,6 @@ class FriendProvider with ChangeNotifier {
   double _totalOwedToUser = 0.0;
   double get totalOwedToUser => _totalOwedToUser;
 
-  // NEW: Total amount the user owes to friends.
   double _totalOwedByUser = 0.0;
   double get totalOwedByUser => _totalOwedByUser;
 
@@ -30,9 +29,9 @@ class FriendProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // Fetch all active and completed debts associated with friends.
-      final allFriendDebts = await _debtRepo.getFriendDebts(isClosed: false);
-      _completedFriendLoans = await _debtRepo.getFriendDebts(isClosed: true);
+      // Corrected: Fetch all active and completed debts associated with friends using the correct repository.
+      final allFriendDebts = await _friendRepo.getFriendDebts(isClosed: false);
+      _completedFriendLoans = await _friendRepo.getFriendDebts(isClosed: true);
 
       // Separate the active debts into two lists based on who the debtor is.
       _loansToFriends = allFriendDebts.where((d) => d['is_user_debtor'] == 0).toList();
@@ -54,5 +53,12 @@ class FriendProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Adds a repayment from a friend for a loan the user gave them.
+  Future<void> addRepaymentFromFriend(
+      int debtId, String description, double amount, DateTime date) async {
+    await _friendRepo.addRepaymentFromFriend(debtId, description, amount, date);
+    await loadFriendsData(); // Refresh data after the operation
   }
 }

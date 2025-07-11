@@ -178,9 +178,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       theme.scaffoldBackgroundColor,
     ];
 
-    // --- FIX: Restore the AppBar for non-dashboard pages ---
     final appBar = _selectedIndex == 0
-        ? null // The Dashboard page has its own AppBar.
+        ? null
         : AppBar(
             automaticallyImplyLeading: false,
             backgroundColor: Colors.transparent,
@@ -244,7 +243,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
         final navigator = Navigator.of(context);
@@ -282,7 +281,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         child: Scaffold(
           extendBody: true,
           backgroundColor: Colors.transparent,
-          appBar: appBar, // Use the conditional AppBar
+          appBar: appBar,
           body: IndexedStack(
             index: _selectedIndex,
             children: _mainPages,

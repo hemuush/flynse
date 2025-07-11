@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/friend_provider.dart';
-import 'package:flynse/features/debt/ui/widgets/debt_card.dart';
+import 'package:flynse/features/friends/pages/closed_friend_loans_page.dart';
+import 'package:flynse/features/friends/widgets/friend_debt_card.dart';
 import 'package:flynse/features/debt/ui/widgets/total_debt_card.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,9 @@ class FriendsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return Consumer<FriendProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading) {
@@ -28,7 +32,8 @@ class FriendsPage extends StatelessWidget {
                   child: TotalDebtCard(
                     title: 'Friends Owe You',
                     total: provider.totalOwedToUser,
-                    isUserDebtor: false,
+                    isUserDebtor: false, // Owed to you
+                    debtCount: provider.loansToFriends.length,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -36,22 +41,55 @@ class FriendsPage extends StatelessWidget {
                   child: TotalDebtCard(
                     title: 'You Owe Friends',
                     total: provider.totalOwedByUser,
-                    isUserDebtor: true,
+                    isUserDebtor: true, // You are the debtor
+                    debtCount: provider.debtsToFriends.length,
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+             Card(
+              elevation: 0,
+              color: theme.colorScheme.surfaceContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+                side: BorderSide(
+                  color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                  width: 1,
+                ),
+              ),
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => const ClosedFriendLoansPage(),
+                  ));
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('View Closed',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Icon(Icons.history_rounded),
+                    ],
+                  ),
+                ),
+              ),
             ),
             
             // Friends Owe You Section
             if (hasOwedToUser) ...[
               _buildListHeader('Friends Owe You', Theme.of(context)),
-              ...provider.loansToFriends.map((debt) => DebtCard(debt: debt)),
+              ...provider.loansToFriends.map((debt) => FriendDebtCard(debt: debt)),
             ],
 
             // You Owe Friends Section
             if (hasOwedByUser) ...[
               _buildListHeader('You Owe Friends', Theme.of(context)),
-              ...provider.debtsToFriends.map((debt) => DebtCard(debt: debt)),
+              ...provider.debtsToFriends.map((debt) => FriendDebtCard(debt: debt)),
             ],
 
             // Empty State
