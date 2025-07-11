@@ -1,8 +1,8 @@
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/savings_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 
-class SavingsProvider with ChangeNotifier {
+class SavingsProvider extends BaseProvider {
   final SavingsRepository _savingsRepo = SavingsRepository();
 
   bool _isLoading = true;

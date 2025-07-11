@@ -1,9 +1,8 @@
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/friend_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 
-class FriendProvider with ChangeNotifier {
-  // Corrected: Use FriendRepository instead of DebtRepository
+class FriendProvider extends BaseProvider {
   final FriendRepository _friendRepo = FriendRepository();
 
   bool _isLoading = true;
@@ -29,20 +28,16 @@ class FriendProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // Corrected: Fetch all active and completed debts associated with friends using the correct repository.
       final allFriendDebts = await _friendRepo.getFriendDebts(isClosed: false);
       _completedFriendLoans = await _friendRepo.getFriendDebts(isClosed: true);
 
-      // Separate the active debts into two lists based on who the debtor is.
       _loansToFriends = allFriendDebts.where((d) => d['is_user_debtor'] == 0).toList();
       _debtsToFriends = allFriendDebts.where((d) => d['is_user_debtor'] == 1).toList();
 
-      // Calculate the total amount friends owe to the user.
       _totalOwedToUser = _loansToFriends.fold(0.0, (sum, debt) {
         return sum + ((debt['total_amount'] as double) - (debt['amount_paid'] as double));
       });
 
-      // Calculate the total amount the user owes to friends.
       _totalOwedByUser = _debtsToFriends.fold(0.0, (sum, debt) {
         return sum + ((debt['total_amount'] as double) - (debt['amount_paid'] as double));
       });
@@ -55,10 +50,33 @@ class FriendProvider with ChangeNotifier {
     }
   }
 
+  /// --- NEW: Triggers a recalculation for all friend debts and refreshes the UI. ---
+  Future<void> recalculateAllFriendDebts() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+        await _friendRepo.recalculateAllFriendDebts();
+        // After recalculating, we must reload the data to reflect the changes.
+        await loadFriendsData();
+    } catch (e) {
+        log("Error recalculating friend debts: $e");
+    } finally {
+        _isLoading = false;
+        notifyListeners();
+    }
+  }
+
   /// Adds a repayment from a friend for a loan the user gave them.
   Future<void> addRepaymentFromFriend(
       int debtId, String description, double amount, DateTime date) async {
     await _friendRepo.addRepaymentFromFriend(debtId, description, amount, date);
-    await loadFriendsData(); // Refresh data after the operation
+    await loadFriendsData();
+  }
+  
+  /// Adds a repayment to a friend for a debt the user owes.
+  Future<void> addRepaymentToFriend(
+      int debtId, String description, double amount, DateTime date) async {
+    await _friendRepo.addRepaymentToFriend(debtId, description, amount, date);
+    await loadFriendsData();
   }
 }

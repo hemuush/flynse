@@ -52,63 +52,56 @@ class TransactionRepository {
       }
       final transaction = transactions.first;
 
+      final int? friendId = transaction['friend_id'] as int?;
       final String? pairId = transaction['pair_id'] as String?;
+
+      // Handle paired transactions (e.g., savings withdrawal) first.
       if (pairId != null) {
         return await txn
             .delete('transactions', where: 'pair_id = ?', whereArgs: [pairId]);
       }
 
-      final int? debtId = transaction['debt_id'] as int?;
-      if (debtId != null) {
-        await _handleDebtReversalOnDelete(txn, transaction);
+      // Delete the specific transaction record.
+      final count = await txn.delete('transactions', where: 'id = ?', whereArgs: [id]);
+
+      // If it was a friend-related transaction, trigger a full recalculation.
+      if (friendId != null) {
+        await _friendRepo.recalculateFriendDebtState(txn, friendId);
+      } else {
+        // Otherwise, use the simpler reversal logic for personal debts.
+        await _handlePersonalDebtReversalOnDelete(txn, transaction);
       }
 
-      return await txn.delete('transactions', where: 'id = ?', whereArgs: [id]);
+      return count;
     });
   }
 
-  /// Private helper to manage all debt-related reversals when a transaction is deleted.
-  Future<void> _handleDebtReversalOnDelete(
+  /// Private helper to manage reversals for NON-FRIEND debt transactions when deleted.
+  Future<void> _handlePersonalDebtReversalOnDelete(
       Transaction txn, Map<String, dynamic> transaction) async {
+    final int? debtId = transaction['debt_id'] as int?;
+    if (debtId == null) return;
+
     final double amount = transaction['amount'] as double;
-    final int debtId = transaction['debt_id'] as int;
     final String type = transaction['type'] as String;
     final String category = transaction['category'] as String;
 
-    // Scenario 1: The transaction was the CREATION of a formal loan.
+    // Case 1: The transaction was the CREATION of a personal loan.
     if (type == 'Income' && category == 'Loan') {
       await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
-      await txn.delete('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
+      // Also delete the linked "EMI Purchase" expense if it exists
+      await txn.delete('transactions', where: 'debt_id = ? AND category = ?', whereArgs: [debtId, 'Shopping']);
       return;
     }
     
-    // Scenario 2: The transaction was a REPAYMENT on a debt (personal or friend).
-    if (category == 'Debt Repayment' || category == 'Friend Repayment') {
+    // Case 2: The transaction was a REPAYMENT on a personal debt.
+    if (category == 'Debt Repayment') {
       await txn.rawUpdate('''
         UPDATE debts
         SET amount_paid = amount_paid - ?,
             is_closed = 0
         WHERE id = ?
       ''', [amount, debtId]);
-      return;
-    }
-    
-    // Scenario 3: The transaction was a simple "Friends" entry that created/updated a debt.
-    if (category == 'Friends') {
-      await txn.rawUpdate('''
-        UPDATE debts
-        SET total_amount = total_amount - ?,
-            principal_amount = principal_amount - ?
-        WHERE id = ?
-      ''', [amount, amount, debtId]);
-
-      final updatedDebtList = await txn.query('debts', where: 'id = ?', whereArgs: [debtId]);
-      if (updatedDebtList.isNotEmpty) {
-        final updatedDebt = updatedDebtList.first;
-        if ((updatedDebt['total_amount'] as double) <= 0.01) {
-          await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
-        }
-      }
       return;
     }
   }

@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flynse/core/data/backup_service.dart';
 import 'package:flynse/core/data/repositories/settings_repository.dart';
 import 'package:flynse/core/data/repositories/transaction_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 import 'package:flynse/core/routing/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsProvider with ChangeNotifier {
+class SettingsProvider extends BaseProvider {
   final SettingsRepository _settingsRepo = SettingsRepository();
   final TransactionRepository _transactionRepo = TransactionRepository();
 
@@ -16,7 +17,6 @@ class SettingsProvider with ChangeNotifier {
   String? _profileImageBase64;
   String? get profileImageBase64 => _profileImageBase64;
 
-  // MODIFICATION: Renamed properties to reflect they are seed colors for the theme
   Color? _seedColorLight;
   Color? get seedColorLight => _seedColorLight;
   Color? _seedColorDark;
@@ -48,7 +48,6 @@ class SettingsProvider with ChangeNotifier {
     _autoBackupFrequency = prefs.getString('autoBackupFrequency') ?? 'Off';
     _salaryCycle = prefs.getString('salaryCycle') ?? 'start_of_month';
 
-    // MODIFICATION: Load seed colors instead of specific background colors
     _seedColorLight = await _loadColor('seed_color_light');
     _seedColorDark = await _loadColor('seed_color_dark');
 
@@ -67,20 +66,13 @@ class SettingsProvider with ChangeNotifier {
       String key, Color color, Function(Color) setter) async {
     setter(color);
 
-    // Convert normalized double color channels to 8-bit integers
-    final int a = (color.a * 255).round() & 0xff;
-    final int r = (color.r * 255).round() & 0xff;
-    final int g = (color.g * 255).round() & 0xff;
-    final int b = (color.b * 255).round() & 0xff;
-
-    // Compose ARGB integer
-    final int argbValue = (a << 24) | (r << 16) | (g << 8) | b;
-
-    await _settingsRepo.saveSetting(key, argbValue.toRadixString(16));
+    // FIX: The .alpha, .red, .green, .blue properties of a Color object are already
+    // 8-bit integers, so no conversion is necessary. The `value` property
+    // holds the full 32-bit ARGB value.
+    await _settingsRepo.saveSetting(key, color.value.toRadixString(16));
     notifyListeners();
   }
 
-  // MODIFICATION: Renamed method to be more descriptive of its new function
   Future<void> setThemeSeedColor(Color color, bool isDarkMode) async {
     await _setColor(isDarkMode ? 'seed_color_dark' : 'seed_color_light', color,
         (c) => isDarkMode ? _seedColorDark = c : _seedColorLight = c);

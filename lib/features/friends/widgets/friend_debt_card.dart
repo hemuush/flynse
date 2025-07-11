@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flynse/core/providers/app_provider.dart';
-import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/features/settings/friend_history_page.dart';
 import 'package:intl/intl.dart';
@@ -170,7 +169,6 @@ class _FriendDebtCardState extends State<FriendDebtCard> {
   void _showPaymentDialog(BuildContext context, Map<String, dynamic> debt) {
     final amountController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final debtProvider = context.read<DebtProvider>();
     final friendProvider = context.read<FriendProvider>();
     final appProvider = context.read<AppProvider>();
 
@@ -222,7 +220,7 @@ class _FriendDebtCardState extends State<FriendDebtCard> {
                     final amount = double.parse(amountController.text);
                     
                     if (isUserDebtor) {
-                      await debtProvider.addRepayment(
+                      await friendProvider.addRepaymentToFriend(
                           debt['id'],
                           'Payment to ${debt['name']}',
                           amount,

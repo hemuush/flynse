@@ -10,6 +10,11 @@ class DebtRepository {
 
   Future<Database> get _database async => _dbHelper.database;
 
+  /// --- NEW: A public method to trigger interest recalculation for all debts. ---
+  Future<void> recalculateAllPersonalDebts() async {
+    await applyAnnualInterest();
+  }
+
   Future<void> applyAnnualInterest() async {
     final db = await _database;
     // This logic correctly targets only non-term, interest-bearing personal debts.
@@ -173,7 +178,7 @@ class DebtRepository {
 
         final schedule = AmortizationCalculator.calculate(
             principal: updatedDebt['principal_amount'] as double?,
-            rate: updatedDebt['interest_rate'] as double?,
+            rate: (updatedDebt['interest_rate'] as num?)?.toDouble(),
             termInMonths: originalTermInMonths > 0 ? originalTermInMonths : null,
             startDate:
                 DateTime.tryParse(updatedDebt['creation_date'] as String? ?? ''),
@@ -208,7 +213,7 @@ class DebtRepository {
       else {
         final schedule = AmortizationCalculator.calculate(
           principal: latestDebtState['principal_amount'] as double?,
-          rate: latestDebtState['interest_rate'] as double?,
+          rate: (latestDebtState['interest_rate'] as num?)?.toDouble(),
           termInMonths: termInYears * 12,
           startDate: DateTime.tryParse(latestDebtState['creation_date'] as String? ?? ''),
           repayments: await getRepaymentHistory(debtId, txn: txn),

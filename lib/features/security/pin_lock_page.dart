@@ -26,7 +26,6 @@ class PinLockPageArgs {
 }
 
 class PinLockPage extends StatefulWidget {
-  // FIX: Add a static flag to prevent multiple instances of the lock screen.
   static bool isLockScreenOpen = false;
 
   final PinLockMode mode;
@@ -64,7 +63,6 @@ class _PinLockPageState extends State<PinLockPage>
   @override
   void initState() {
     super.initState();
-    // FIX: Set the flag to true when the page is initialized.
     PinLockPage.isLockScreenOpen = true;
 
     _shakeController = AnimationController(
@@ -85,7 +83,6 @@ class _PinLockPageState extends State<PinLockPage>
 
   @override
   void dispose() {
-    // FIX: Set the flag to false when the page is disposed.
     PinLockPage.isLockScreenOpen = false;
     _shakeController.dispose();
     super.dispose();
@@ -152,6 +149,8 @@ class _PinLockPageState extends State<PinLockPage>
 
   void _onSuccessfulAuthentication() {
     HapticFeedback.heavyImpact();
+    // --- MODIFICATION: Call onPinCorrect before popping ---
+    // This ensures any state changes in the parent happen before this screen is gone.
     widget.onPinCorrect?.call();
     
     if (Navigator.of(context).canPop()) {
@@ -218,6 +217,7 @@ class _PinLockPageState extends State<PinLockPage>
       } else {
         if (pin == _firstPin) {
           await _settingsRepo.savePin(pin);
+          // --- MODIFICATION: Call onPinCreated before any navigation ---
           widget.onPinCreated?.call();
         } else {
           setState(() {

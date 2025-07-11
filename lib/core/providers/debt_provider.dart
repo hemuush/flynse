@@ -1,8 +1,8 @@
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/debt_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 
-class DebtProvider with ChangeNotifier {
+class DebtProvider extends BaseProvider {
   final DebtRepository _debtRepo = DebtRepository();
 
   bool _isLoading = true;
@@ -24,7 +24,6 @@ class DebtProvider with ChangeNotifier {
     try {
       await _debtRepo.applyAnnualInterest();
 
-      // Corrected: The getDebts method is now simplified and no longer needs extra parameters.
       _userDebts = await _debtRepo.getDebts(isClosed: false);
       _completedUserDebts = await _debtRepo.getDebts(isClosed: true);
 
@@ -39,6 +38,22 @@ class DebtProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// --- NEW: Triggers a recalculation for all personal debts and refreshes the UI. ---
+  Future<void> recalculateAllPersonalDebts() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+        await _debtRepo.recalculateAllPersonalDebts();
+        // After recalculating, we must reload the data to reflect the changes.
+        await loadDebts();
+    } catch (e) {
+        log("Error recalculating personal debts: $e");
+    } finally {
+        _isLoading = false;
+        notifyListeners();
     }
   }
 

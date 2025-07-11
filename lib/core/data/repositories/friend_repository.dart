@@ -29,8 +29,6 @@ class FriendRepository {
   Future<void> deleteFriend(int friendId) async {
     final db = await _database;
     await db.transaction((txn) async {
-      // The check for pending debts is handled in the UI/Provider layer.
-      // Here we just disassociate and delete.
       await txn.update('transactions', {'friend_id': null}, where: 'friend_id = ?', whereArgs: [friendId]);
       await txn.delete('friends', where: 'id = ?', whereArgs: [friendId]);
     });
@@ -57,6 +55,35 @@ class FriendRepository {
       limit: 1,
     );
     return result.isNotEmpty;
+  }
+  
+  /// --- NEW: Recalculates the debt state for ALL friends to fix inconsistencies. ---
+  Future<void> recalculateAllFriendDebts() async {
+    final db = await _database;
+    await db.transaction((txn) async {
+        final friends = await txn.query('friends', columns: ['id']);
+        for (final friend in friends) {
+            final friendId = friend['id'] as int;
+            await recalculateFriendDebtState(txn, friendId);
+        }
+    });
+  }
+
+  /// Recalculates the entire debt state for a single friend from scratch.
+  Future<void> recalculateFriendDebtState(Transaction txn, int friendId) async {
+    await txn.delete('debts', where: 'friend_id = ?', whereArgs: [friendId]);
+
+    final transactions = await txn.query(
+      'transactions',
+      where: 'friend_id = ?',
+      whereArgs: [friendId],
+      orderBy: 'transaction_date ASC, id ASC',
+    );
+
+    for (final transaction in transactions) {
+        final transactionMap = Map<String, dynamic>.from(transaction);
+        await handleFriendTransaction(txn, transactionMap, isRecalculation: true);
+    }
   }
 
   /// Adds a repayment from a friend for a loan the user gave them.
@@ -92,6 +119,40 @@ class FriendRepository {
     });
   }
 
+  /// Adds a repayment to a friend for a debt the user owes.
+  Future<void> addRepaymentToFriend(
+      int debtId, String description, double amount, DateTime date) async {
+    final db = await _database;
+    await db.transaction((txn) async {
+      await txn.insert('transactions', {
+        'description': description,
+        'amount': amount,
+        'type': 'Expense',
+        'category': 'Friends',
+        'transaction_date': date.toIso8601String(),
+        'debt_id': debtId
+      });
+
+      await txn.rawUpdate('''
+        UPDATE debts
+        SET amount_paid = amount_paid + ?
+        WHERE id = ?
+      ''', [amount, debtId]);
+
+      final result =
+          await txn.query('debts', where: 'id = ?', whereArgs: [debtId]);
+      if (result.isNotEmpty) {
+        final debt = result.first;
+        if ((debt['amount_paid'] as num) >=
+            (debt['total_amount'] as num) - 0.01) {
+          await txn.update('debts', {'is_closed': 1},
+              where: 'id = ?', whereArgs: [debtId]);
+        }
+      }
+    });
+  }
+
+
   /// Retrieves the complete transaction history with a specific friend.
   Future<List<Map<String, dynamic>>> getFriendTransactionHistory(int friendId) async {
     final db = await _database;
@@ -105,7 +166,7 @@ class FriendRepository {
 
   /// Handles the complex logic of creating/updating debts when a transaction with a friend occurs.
   Future<void> handleFriendTransaction(
-      Transaction txn, Map<String, dynamic> transactionData) async {
+      Transaction txn, Map<String, dynamic> transactionData, {bool isRecalculation = false}) async {
     final friendId = transactionData['friend_id'] as int;
     final transactionAmount = transactionData['amount'] as double;
     final isExpense = transactionData['type'] == 'Expense';
@@ -220,7 +281,11 @@ class FriendRepository {
       }
     }
 
-    transactionData['debt_id'] = finalDebtId;
-    await txn.insert('transactions', transactionData);
+    if (isRecalculation) {
+        await txn.update('transactions', {'debt_id': finalDebtId}, where: 'id = ?', whereArgs: [transactionData['id']]);
+    } else {
+        transactionData['debt_id'] = finalDebtId;
+        await txn.insert('transactions', transactionData);
+    }
   }
 }

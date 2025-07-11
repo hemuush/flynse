@@ -1,8 +1,8 @@
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/transaction_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 
-class TransactionProvider with ChangeNotifier {
+class TransactionProvider extends BaseProvider {
   final TransactionRepository _transactionRepo = TransactionRepository();
 
   bool _isLoading = true;

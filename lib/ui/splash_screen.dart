@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flynse/core/providers/app_provider.dart';
 import 'package:flynse/ui/home_page.dart';
 import 'package:flynse/ui/onboarding_page.dart';
 import 'package:flynse/shared/theme/theme_manager.dart';
@@ -49,10 +48,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _navigate() async {
     final navigator = Navigator.of(context);
-    final appProvider = context.read<AppProvider>();
     
-    await appProvider.init();
-
     final prefs = await SharedPreferences.getInstance();
     
     final isFirstRun = !prefs.containsKey('has_opened_before');
@@ -64,9 +60,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         MaterialPageRoute(builder: (context) => const OnboardingPage()),
       );
     } else {
-      // --- FIX: Always navigate to the home page ---
-      // The home page itself is now responsible for handling the lock screen logic.
-      // This eliminates the race condition where two lock screens could be pushed.
       navigator.pushReplacement(
         MaterialPageRoute(builder: (context) => const MyHomePage()),
       );

@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flynse/core/data/repositories/settings_repository.dart';
 import 'package:flynse/core/providers/analytics_provider.dart';
 import 'package:flynse/core/providers/app_provider.dart';
+import 'package:flynse/core/providers/debt_provider.dart';
+import 'package:flynse/core/providers/friend_provider.dart';
 import 'package:flynse/core/providers/settings_provider.dart';
 import 'package:flynse/core/routing/app_router.dart';
 import 'package:flynse/features/dashboard/dashboard_page.dart';
@@ -28,7 +30,9 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   DateTime? _lastPressedAt;
-  bool _isLocked = true;
+  
+  bool _isInitializing = true;
+  bool _isLocked = true; 
 
   @override
   void initState() {
@@ -41,17 +45,29 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       }
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SettingsProvider>().checkAndPerformAutoBackup();
-      if (!widget.isFirstLaunch) {
-        _checkPinAndLock();
-      } else {
-        setState(() {
-          _isLocked = false;
-        });
-      }
-    });
+    _initializeApplication();
   }
+  
+  Future<void> _initializeApplication() async {
+    final appProvider = context.read<AppProvider>();
+    await appProvider.init(); 
+    
+    if (mounted) {
+      setState(() {
+        _isInitializing = false;
+      });
+    }
+
+    context.read<SettingsProvider>().checkAndPerformAutoBackup();
+    if (!widget.isFirstLaunch) {
+      _checkPinAndLock();
+    } else {
+      setState(() {
+        _isLocked = false;
+      });
+    }
+  }
+
 
   @override
   void dispose() {
@@ -69,13 +85,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         });
       }
     }
-    if (state == AppLifecycleState.resumed && _isLocked) {
+    if (state == AppLifecycleState.resumed && _isLocked && !_isInitializing) {
       _checkPinAndLock();
     }
   }
 
   Future<void> _checkPinAndLock() async {
-    // FIX: Prevents pushing multiple lock screens by checking a static flag.
     if (PinLockPage.isLockScreenOpen) return;
 
     final settingsRepo = SettingsRepository();
@@ -88,9 +103,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           mode: PinLockMode.enter,
           onPinCorrect: () {
             if (mounted) {
-              setState(() {
-                _isLocked = false;
-              });
+              // On successful PIN entry, we don't need to change _isLocked state here,
+              // as the pop of the lock screen will return focus to the app.
             }
           },
         ),
@@ -166,6 +180,14 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitializing) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final theme = Theme.of(context);
     final settingsProvider = context.watch<SettingsProvider>();
 
@@ -193,6 +215,76 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             actions: [
+              if (_selectedIndex == 2) // Index 2 is the Debts tab
+                IconButton(
+                  icon: const Icon(Icons.sync_problem_outlined),
+                  tooltip: 'Recalculate Debt Balances',
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Recalculate Balances?'),
+                        content: const Text(
+                            'This will re-apply any annual interest calculations to your personal debts. Use this if you see any inconsistencies.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel')),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Recalculate'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      if (context.mounted) {
+                        await context.read<DebtProvider>().recalculateAllPersonalDebts();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Personal debt balances have been recalculated.')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
+              if (_selectedIndex == 3) // Index 3 is the Friends tab
+                IconButton(
+                  icon: const Icon(Icons.sync_problem_outlined),
+                  tooltip: 'Recalculate Friend Balances',
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Recalculate Balances?'),
+                        content: const Text(
+                            'This will recalculate all friend debts from their transaction histories. Use this if you see any inconsistencies in the balances.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel')),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Recalculate'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      if (context.mounted) {
+                        await context.read<FriendProvider>().recalculateAllFriendDebts();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Friend balances have been recalculated.')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
               IconButton(
                 icon: const Icon(Icons.assessment_outlined),
                 onPressed: () async {

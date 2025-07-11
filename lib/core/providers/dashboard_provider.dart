@@ -1,9 +1,9 @@
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/analytics_repository.dart';
 import 'package:flynse/core/data/repositories/transaction_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 
-class DashboardProvider with ChangeNotifier {
+class DashboardProvider extends BaseProvider {
   final AnalyticsRepository _analyticsRepo = AnalyticsRepository();
   final TransactionRepository _transactionRepo = TransactionRepository();
 

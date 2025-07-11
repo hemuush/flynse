@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 import 'package:flynse/core/providers/dashboard_provider.dart';
 import 'package:flynse/core/providers/debt_provider.dart';
 import 'package:flynse/core/providers/friend_provider.dart';
@@ -7,7 +8,7 @@ import 'package:flynse/core/providers/settings_provider.dart';
 import 'package:flynse/core/providers/transaction_provider.dart';
 import 'package:provider/provider.dart';
 
-class AppProvider with ChangeNotifier {
+class AppProvider extends BaseProvider {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 

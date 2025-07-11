@@ -1,8 +1,8 @@
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:flynse/core/data/repositories/analytics_repository.dart';
+import 'package:flynse/core/providers/base_provider.dart';
 
-class AnalyticsProvider with ChangeNotifier {
+class AnalyticsProvider extends BaseProvider {
   final AnalyticsRepository _analyticsRepo = AnalyticsRepository();
 
   bool _isAnalyticsLoading = true;
