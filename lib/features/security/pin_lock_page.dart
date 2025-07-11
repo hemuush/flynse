@@ -54,7 +54,8 @@ class _PinLockPageState extends State<PinLockPage>
   bool _isConfirming = false;
   String _firstPin = '';
   String _errorText = '';
-  bool _isBiometricAvailable = false;
+  
+  bool _biometricsEnabled = false;
   bool _isAuthenticating = false;
 
   late AnimationController _shakeController;
@@ -77,7 +78,7 @@ class _PinLockPageState extends State<PinLockPage>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkBiometrics();
+      _initializeSecurityCheck();
     });
   }
 
@@ -88,28 +89,25 @@ class _PinLockPageState extends State<PinLockPage>
     super.dispose();
   }
 
-  Future<void> _checkBiometrics() async {
+  Future<void> _initializeSecurityCheck() async {
     bool canCheckBiometrics;
     try {
-      canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      canCheckBiometrics = await _localAuth.canCheckBiometrics && await _localAuth.isDeviceSupported();
     } on PlatformException {
       canCheckBiometrics = false;
     }
-    if (!mounted) return;
 
-    setState(() {
-      _isBiometricAvailable = canCheckBiometrics;
-    });
-
-    final useBiometrics = await _settingsRepo.getSetting('use_biometric') == 'true';
+    final useBiometricsSetting = await _settingsRepo.getSetting('use_biometric') == 'true';
     
-    if (_isBiometricAvailable && widget.mode == PinLockMode.enter && useBiometrics) {
-      _authenticateWithBiometrics();
+    if(mounted) {
+      setState(() {
+        _biometricsEnabled = canCheckBiometrics && useBiometricsSetting;
+      });
     }
   }
 
   Future<void> _authenticateWithBiometrics() async {
-    if (_isAuthenticating) return;
+    if (_isAuthenticating || !_biometricsEnabled) return;
     
     if (mounted) {
       setState(() {
@@ -149,8 +147,6 @@ class _PinLockPageState extends State<PinLockPage>
 
   void _onSuccessfulAuthentication() {
     HapticFeedback.heavyImpact();
-    // --- MODIFICATION: Call onPinCorrect before popping ---
-    // This ensures any state changes in the parent happen before this screen is gone.
     widget.onPinCorrect?.call();
     
     if (Navigator.of(context).canPop()) {
@@ -217,7 +213,6 @@ class _PinLockPageState extends State<PinLockPage>
       } else {
         if (pin == _firstPin) {
           await _settingsRepo.savePin(pin);
-          // --- MODIFICATION: Call onPinCreated before any navigation ---
           widget.onPinCreated?.call();
         } else {
           setState(() {
@@ -242,13 +237,12 @@ class _PinLockPageState extends State<PinLockPage>
       }
   }
 
-  String _getSubtitle() {
-    if (widget.title != null) return widget.title!;
-
+  String _getWelcomeMessage() {
+    final userName = context.read<SettingsProvider>().userName.split(' ').first;
     if (widget.mode == PinLockMode.create) {
-      return _isConfirming ? 'Confirm your new Flynse PIN' : 'Create your Flynse PIN';
+      return _isConfirming ? 'Confirm your PIN' : 'Create a new PIN';
     }
-    return 'Enter your Flynse PIN';
+    return 'Welcome back, $userName!';
   }
 
   @override
@@ -261,92 +255,53 @@ class _PinLockPageState extends State<PinLockPage>
       canPop: false,
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Image.asset(
-              'assets/icon/flynse.png',
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(
-                  Icons.wallet_outlined,
-                  color: theme.colorScheme.primary,
-                );
-              },
-            ),
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                backgroundImage: profileImageBase64 != null
-                    ? MemoryImage(base64Decode(profileImageBase64))
-                    : null,
-                child: profileImageBase64 == null && settingsProvider.userName.isNotEmpty
-                    ? Text(
-                        settingsProvider.userName[0].toUpperCase(),
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      )
-                    : null,
-              ),
-            ),
-          ],
-        ),
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               children: [
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Hi, ${settingsProvider.userName.split(' ').first}',
-                        style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _getSubtitle(),
-                        style: theme.textTheme.titleMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
-                      ),
-                      const SizedBox(height: 40),
-                      AnimatedBuilder(
-                        animation: _shakeAnimation,
-                        builder: (context, child) {
-                          final sineValue = math.sin(_shakeAnimation.value * math.pi * 4);
-                          return Transform.translate(
-                            offset: Offset(sineValue * 12, 0),
-                            child: child,
-                          );
-                        },
-                        child: _buildPinIndicators(theme),
-                      ),
-                      const SizedBox(height: 24),
-                      if (_errorText.isNotEmpty)
-                        Text(
-                          _errorText,
-                          style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
-                          textAlign: TextAlign.center,
+                const Spacer(flex: 2),
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  backgroundImage: profileImageBase64 != null
+                      ? MemoryImage(base64Decode(profileImageBase64))
+                      : null,
+                  child: profileImageBase64 == null && settingsProvider.userName.isNotEmpty
+                      ? Text(
+                          settingsProvider.userName[0].toUpperCase(),
+                          style: theme.textTheme.displaySmall
+                              ?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
                         )
-                      else if (_isBiometricAvailable && widget.mode == PinLockMode.enter)
-                        TextButton.icon(
-                          icon: Icon(Icons.fingerprint, color: theme.colorScheme.primary),
-                          label: Text(
-                            'Use fingerprint',
-                            style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: _authenticateWithBiometrics,
-                        ),
-                    ],
-                  ),
+                      : null,
                 ),
+                const SizedBox(height: 24),
+                Text(
+                  _getWelcomeMessage(),
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                AnimatedBuilder(
+                  animation: _shakeAnimation,
+                  builder: (context, child) {
+                    final sineValue = math.sin(_shakeAnimation.value * math.pi * 4);
+                    return Transform.translate(
+                      offset: Offset(sineValue * 12, 0),
+                      child: child,
+                    );
+                  },
+                  child: _buildPinIndicators(theme),
+                ),
+                SizedBox(height: _errorText.isNotEmpty ? 16 : 40),
+                if (_errorText.isNotEmpty)
+                  Text(
+                    _errorText,
+                    style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                const Spacer(flex: 1),
                 _buildNumberPad(),
-                const SizedBox(height: 20),
+                const Spacer(flex: 1),
               ],
             ),
           ),
@@ -356,37 +311,25 @@ class _PinLockPageState extends State<PinLockPage>
   }
 
   Widget _buildPinIndicators(ThemeData theme) {
+    bool hasError = _errorText.isNotEmpty;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(4, (index) {
         bool isActive = index < _enteredPin.length;
-        bool hasError = _errorText.isNotEmpty;
         
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           margin: const EdgeInsets.symmetric(horizontal: 10),
-          width: 50,
-          height: 60,
+          width: 18,
+          height: 18,
           decoration: BoxDecoration(
-            color: isActive ? theme.colorScheme.primary.withAlpha(26) : theme.colorScheme.surfaceContainer,
+            shape: BoxShape.circle,
+            color: isActive ? (hasError ? theme.colorScheme.error : theme.colorScheme.primary) : Colors.transparent,
             border: Border.all(
-              color: hasError ? theme.colorScheme.error : (isActive ? theme.colorScheme.primary : theme.dividerColor),
+              color: hasError ? theme.colorScheme.error : theme.colorScheme.primary,
               width: 1.5,
             ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: isActive
-                ? Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: hasError ? theme.colorScheme.error : theme.colorScheme.primary,
-                    ),
-                  )
-                : null,
           ),
         );
       }),
@@ -398,7 +341,7 @@ class _PinLockPageState extends State<PinLockPage>
       '1', '2', '3',
       '4', '5', '6',
       '7', '8', '9',
-      '.', '0', 'backspace'
+      'biometric', '0', 'backspace'
     ];
 
     return GridView.builder(
@@ -408,13 +351,19 @@ class _PinLockPageState extends State<PinLockPage>
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 20,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.5,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.2,
       ),
       itemBuilder: (context, index) {
         final key = keys[index];
-        if (key == '.') {
-          return const SizedBox.shrink(); // Placeholder for the dot
+        if (key == 'biometric') {
+          return _biometricsEnabled && widget.mode == PinLockMode.enter
+            ? _buildNumpadButton(
+                '',
+                icon: Icons.fingerprint,
+                onPressed: _authenticateWithBiometrics,
+              )
+            : const SizedBox.shrink();
         }
         if (key == 'backspace') {
           return _buildNumpadButton(
@@ -430,18 +379,24 @@ class _PinLockPageState extends State<PinLockPage>
 
   Widget _buildNumpadButton(String value, {IconData? icon, VoidCallback? onPressed}) {
     final theme = Theme.of(context);
-    return TextButton(
-      onPressed: onPressed ?? () => _onNumberPress(value),
-      style: TextButton.styleFrom(
-        shape: const CircleBorder(),
-        foregroundColor: theme.colorScheme.onSurface,
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return InkWell(
+      onTap: onPressed ?? () => _onNumberPress(value),
+      customBorder: const CircleBorder(),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: theme.colorScheme.primary.withAlpha(isDarkMode ? 20 : 15),
+        ),
+        child: Center(
+          child: icon != null
+              ? Icon(icon, size: 28, color: theme.colorScheme.onSurface)
+              : Text(
+                  value,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w500),
+                ),
+        ),
       ),
-      child: icon != null
-          ? Icon(icon, size: 24)
-          : Text(
-              value,
-              style: theme.textTheme.headlineMedium,
-            ),
     );
   }
 }

@@ -28,6 +28,12 @@ class SettingsProvider extends BaseProvider {
   String _salaryCycle = 'start_of_month';
   String get salaryCycle => _salaryCycle;
 
+  /// --- NEW: Public method to get SharedPreferences instance ---
+  /// This centralizes access to SharedPreferences for this provider.
+  Future<SharedPreferences> getPrefs() async {
+    return await SharedPreferences.getInstance();
+  }
+
   // Helper method to load a color from settings
   Future<Color?> _loadColor(String key) async {
     final colorStr = await _settingsRepo.getSetting(key);
@@ -44,7 +50,7 @@ class SettingsProvider extends BaseProvider {
 
   Future<void> loadAppSettings() async {
     await loadUserNameAndProfile();
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await getPrefs();
     _autoBackupFrequency = prefs.getString('autoBackupFrequency') ?? 'Off';
     _salaryCycle = prefs.getString('salaryCycle') ?? 'start_of_month';
 
@@ -55,7 +61,7 @@ class SettingsProvider extends BaseProvider {
   }
 
   Future<void> loadUserNameAndProfile() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await getPrefs();
     _userName = prefs.getString('user_name') ?? '';
     _profileImageBase64 = await _settingsRepo.getProfileImage();
     notifyListeners();
@@ -65,10 +71,6 @@ class SettingsProvider extends BaseProvider {
   Future<void> _setColor(
       String key, Color color, Function(Color) setter) async {
     setter(color);
-
-    // FIX: The .alpha, .red, .green, .blue properties of a Color object are already
-    // 8-bit integers, so no conversion is necessary. The `value` property
-    // holds the full 32-bit ARGB value.
     await _settingsRepo.saveSetting(key, color.value.toRadixString(16));
     notifyListeners();
   }
@@ -79,21 +81,21 @@ class SettingsProvider extends BaseProvider {
   }
 
   Future<void> setSalaryCycle(String cycle) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await getPrefs();
     await prefs.setString('salaryCycle', cycle);
     _salaryCycle = cycle;
     notifyListeners();
   }
 
   Future<void> setAutoBackupFrequency(String frequency) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await getPrefs();
     await prefs.setString('autoBackupFrequency', frequency);
     _autoBackupFrequency = frequency;
     notifyListeners();
   }
 
   Future<void> checkAndPerformAutoBackup() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await getPrefs();
     final frequency = prefs.getString('autoBackupFrequency') ?? 'Off';
     final backupPath = prefs.getString('backup_location');
 
@@ -141,8 +143,7 @@ class SettingsProvider extends BaseProvider {
 
   Future<void> clearAllData(BuildContext context) async {
     await _transactionRepo.deleteAllData();
-    // Clear shared preferences to ensure a full reset
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await getPrefs();
     await prefs.clear();
 
     if (context.mounted) {

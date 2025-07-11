@@ -32,7 +32,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   DateTime? _lastPressedAt;
   
   bool _isInitializing = true;
-  bool _isLocked = true; 
+  // --- MODIFICATION: The app is now considered "unlocked" until it's paused. ---
+  bool _isLocked = false; 
 
   @override
   void initState() {
@@ -58,14 +59,11 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
     }
 
+    // --- MODIFICATION: Trigger the lock screen check on initial launch ---
+    // This ensures the lock screen appears when the app is first opened.
+    _checkPinAndLock();
+
     context.read<SettingsProvider>().checkAndPerformAutoBackup();
-    if (!widget.isFirstLaunch) {
-      _checkPinAndLock();
-    } else {
-      setState(() {
-        _isLocked = false;
-      });
-    }
   }
 
 
@@ -78,6 +76,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
+    // --- MODIFICATION: Set the locked flag when the app is paused (goes to background). ---
     if (state == AppLifecycleState.paused) {
       if (mounted) {
         setState(() {
@@ -85,7 +84,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         });
       }
     }
-    if (state == AppLifecycleState.resumed && _isLocked && !_isInitializing) {
+    // --- MODIFICATION: Only show the lock screen on resume IF it was previously locked. ---
+    if (state == AppLifecycleState.resumed && _isLocked) {
       _checkPinAndLock();
     }
   }
@@ -103,8 +103,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           mode: PinLockMode.enter,
           onPinCorrect: () {
             if (mounted) {
-              // On successful PIN entry, we don't need to change _isLocked state here,
-              // as the pop of the lock screen will return focus to the app.
+              // Once unlocked, set the state to unlocked.
+              setState(() {
+                _isLocked = false;
+              });
             }
           },
         ),
