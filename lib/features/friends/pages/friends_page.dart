@@ -71,7 +71,7 @@ class FriendsPage extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('View Closed',
+                      Text('View Closed History',
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       Icon(Icons.history_rounded),
                     ],
@@ -83,13 +83,13 @@ class FriendsPage extends StatelessWidget {
             // Friends Owe You Section
             if (hasOwedToUser) ...[
               _buildListHeader('Friends Owe You', Theme.of(context)),
-              ...provider.loansToFriends.map((debt) => FriendDebtCard(debt: debt)),
+              ...provider.loansToFriends.map((debt) => FriendDebtCard(key: ValueKey("loan-${debt['id']}"), debt: debt)),
             ],
 
             // You Owe Friends Section
             if (hasOwedByUser) ...[
               _buildListHeader('You Owe Friends', Theme.of(context)),
-              ...provider.debtsToFriends.map((debt) => FriendDebtCard(debt: debt)),
+              ...provider.debtsToFriends.map((debt) => FriendDebtCard(key: ValueKey("debt-${debt['id']}"), debt: debt)),
             ],
 
             // Empty State

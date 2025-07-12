@@ -15,8 +15,8 @@ class DatabaseHelper {
 
   static Database? _database;
 
-  // MODIFICATION: Reverted database version to 1.
-  static const _dbVersion = 1;
+  // MODIFICATION: Incremented database version to 2 for schema migration.
+  static const _dbVersion = 2;
   static const _dbName = 'expenses.db';
 
   /// Provides access to the database instance, initializing it if necessary.
@@ -46,7 +46,7 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
+      onUpgrade: _onUpgrade, // Add the onUpgrade callback
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
     );
   }
@@ -61,19 +61,144 @@ class DatabaseHelper {
 
   /// Called when the database is created for the first time.
   Future<void> _onCreate(Database db, int version) async {
-    // MODIFICATION: Using the full schema creation method for the fresh start.
-    await _createFullSchemaV1(db);
+    // For new installations, create the latest (V2) schema directly.
+    await _createFullSchemaV2(db);
     await _populateDefaultData(db);
   }
 
   /// Handles database schema upgrades between versions.
-  // MODIFICATION: Emptied the upgrade path as we are starting fresh from V1.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // No upgrade paths needed for a fresh V1 database.
+    if (oldVersion < 2) {
+      // Migration path from V1 to V2
+      await _migrateV1toV2(db);
+    }
   }
 
-  /// The schema for Version 1 of the database, containing all tables and columns.
-  Future<void> _createFullSchemaV1(Database db) async {
+  /// NEW: Migration logic from version 1 to 2.
+  Future<void> _migrateV1toV2(Database db) async {
+    await db.transaction((txn) async {
+      // Step 1: Create the new friend_debts table
+      await txn.execute('''
+        CREATE TABLE friend_debts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          principal_amount REAL NOT NULL,
+          total_amount REAL NOT NULL,
+          amount_paid REAL NOT NULL DEFAULT 0,
+          creation_date TEXT NOT NULL,
+          is_closed INTEGER NOT NULL DEFAULT 0,
+          is_user_debtor INTEGER NOT NULL,
+          friend_id INTEGER NOT NULL REFERENCES friends(id) ON DELETE CASCADE
+        )
+      ''');
+
+      // Step 2: Move friend debts from the old 'debts' table to 'friend_debts'
+      final friendDebtsToMigrate = await txn.query('debts', where: 'friend_id IS NOT NULL');
+      for (final debt in friendDebtsToMigrate) {
+          await txn.insert('friend_debts', {
+              'id': debt['id'],
+              'name': debt['name'],
+              'principal_amount': debt['principal_amount'],
+              'total_amount': debt['total_amount'],
+              'amount_paid': debt['amount_paid'],
+              'creation_date': debt['creation_date'],
+              'is_closed': debt['is_closed'],
+              'is_user_debtor': debt['is_user_debtor'],
+              'friend_id': debt['friend_id'],
+          });
+      }
+
+      // Step 3: Create a temporary table for personal debts
+      await txn.execute('''
+        CREATE TABLE personal_debts_temp (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          principal_amount REAL NOT NULL,
+          total_amount REAL NOT NULL,
+          amount_paid REAL NOT NULL DEFAULT 0,
+          creation_date TEXT NOT NULL,
+          is_closed INTEGER NOT NULL DEFAULT 0,
+          interest_rate REAL,
+          loan_term_years INTEGER,
+          interest_updates_applied INTEGER NOT NULL DEFAULT 0,
+          is_emi_purchase INTEGER NOT NULL DEFAULT 0,
+          purchase_description TEXT,
+          current_emi REAL,
+          current_term_months INTEGER
+        )
+      ''');
+
+      // Step 4: Copy personal debts into the temporary table
+      final personalDebtsToMigrate = await txn.query('debts', where: 'friend_id IS NULL');
+       for (final debt in personalDebtsToMigrate) {
+          await txn.insert('personal_debts_temp', {
+              'id': debt['id'],
+              'name': debt['name'],
+              'principal_amount': debt['principal_amount'],
+              'total_amount': debt['total_amount'],
+              'amount_paid': debt['amount_paid'],
+              'creation_date': debt['creation_date'],
+              'is_closed': debt['is_closed'],
+              'interest_rate': debt['interest_rate'],
+              'loan_term_years': debt['loan_term_years'],
+              'interest_updates_applied': debt['interest_updates_applied'],
+              'is_emi_purchase': debt['is_emi_purchase'],
+              'purchase_description': debt['purchase_description'],
+              'current_emi': debt['current_emi'],
+              'current_term_months': debt['current_term_months'],
+          });
+      }
+
+      // Step 5: Drop the old debts table and rename the temp table
+      await txn.execute('DROP TABLE debts');
+      await txn.execute('ALTER TABLE personal_debts_temp RENAME TO debts');
+
+      // Step 6: Update transactions table to have separate foreign keys
+      await txn.execute('ALTER TABLE transactions ADD COLUMN personal_debt_id INTEGER REFERENCES debts(id) ON DELETE SET NULL');
+      await txn.execute('ALTER TABLE transactions ADD COLUMN friend_debt_id INTEGER REFERENCES friend_debts(id) ON DELETE SET NULL');
+
+      // Step 7: Populate the new foreign key columns based on the old debt_id
+      final transactionsWithOldDebtId = await txn.query('transactions', where: 'debt_id IS NOT NULL');
+      for (var tx in transactionsWithOldDebtId) {
+        final oldDebtId = tx['debt_id'];
+        final friendDebtCheck = await txn.query('friend_debts', where: 'id = ?', whereArgs: [oldDebtId]);
+        if (friendDebtCheck.isNotEmpty) {
+          await txn.update('transactions', {'friend_debt_id': oldDebtId}, where: 'id = ?', whereArgs: [tx['id']]);
+        } else {
+          await txn.update('transactions', {'personal_debt_id': oldDebtId}, where: 'id = ?', whereArgs: [tx['id']]);
+        }
+      }
+
+      // Step 8: Recreate transactions table to drop the old debt_id column (SQLite limitation)
+      await txn.execute('''
+        CREATE TABLE transactions_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          description TEXT NOT NULL,
+          amount REAL NOT NULL,
+          type TEXT NOT NULL,
+          category TEXT NOT NULL,
+          sub_category TEXT,
+          transaction_date TEXT NOT NULL,
+          pair_id TEXT,
+          split_id TEXT,
+          friend_id INTEGER,
+          prepayment_option TEXT,
+          personal_debt_id INTEGER REFERENCES debts(id) ON DELETE SET NULL,
+          friend_debt_id INTEGER REFERENCES friend_debts(id) ON DELETE SET NULL
+        )
+      ''');
+      await txn.rawInsert('''
+        INSERT INTO transactions_new (id, description, amount, type, category, sub_category, transaction_date, pair_id, split_id, friend_id, prepayment_option, personal_debt_id, friend_debt_id)
+        SELECT id, description, amount, type, category, sub_category, transaction_date, pair_id, split_id, friend_id, prepayment_option, personal_debt_id, friend_debt_id
+        FROM transactions
+      ''');
+      await txn.execute('DROP TABLE transactions');
+      await txn.execute('ALTER TABLE transactions_new RENAME TO transactions');
+    });
+  }
+
+  /// NEW: Schema for V2 for fresh installations.
+  Future<void> _createFullSchemaV2(Database db) async {
     await db.execute('''
       CREATE TABLE transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,11 +208,12 @@ class DatabaseHelper {
         category TEXT NOT NULL,
         sub_category TEXT,
         transaction_date TEXT NOT NULL,
-        debt_id INTEGER,
         pair_id TEXT,
         split_id TEXT,
         friend_id INTEGER,
-        prepayment_option TEXT
+        prepayment_option TEXT,
+        personal_debt_id INTEGER REFERENCES debts(id) ON DELETE SET NULL,
+        friend_debt_id INTEGER REFERENCES friend_debts(id) ON DELETE SET NULL
       )
     ''');
     await db.execute(
@@ -110,7 +236,8 @@ class DatabaseHelper {
         FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
       )
     ''');
-
+    
+    // MODIFICATION: This table is now only for personal debts.
     await db.execute('''
       CREATE TABLE debts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,12 +250,25 @@ class DatabaseHelper {
         interest_rate REAL,
         loan_term_years INTEGER,
         interest_updates_applied INTEGER NOT NULL DEFAULT 0,
-        is_user_debtor INTEGER NOT NULL DEFAULT 1,
-        friend_id INTEGER REFERENCES friends(id) ON DELETE SET NULL,
         is_emi_purchase INTEGER NOT NULL DEFAULT 0,
         purchase_description TEXT,
         current_emi REAL,
         current_term_months INTEGER
+      )
+    ''');
+
+    // NEW: Table specifically for debts with friends.
+    await db.execute('''
+      CREATE TABLE friend_debts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        principal_amount REAL NOT NULL,
+        total_amount REAL NOT NULL,
+        amount_paid REAL NOT NULL DEFAULT 0,
+        creation_date TEXT NOT NULL,
+        is_closed INTEGER NOT NULL DEFAULT 0,
+        is_user_debtor INTEGER NOT NULL,
+        friend_id INTEGER NOT NULL REFERENCES friends(id) ON DELETE CASCADE
       )
     ''');
 
@@ -139,7 +279,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // ---FIX: Removed the 'avatar' column---
     await db.execute('''
       CREATE TABLE friends (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,7 +296,7 @@ class DatabaseHelper {
       )
     ''');
   }
-
+  
   /// Populates the database with initial default data.
   Future<void> _populateDefaultData(Database db) async {
     await db.transaction((txn) async {

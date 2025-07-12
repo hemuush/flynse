@@ -32,8 +32,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   DateTime? _lastPressedAt;
   
   bool _isInitializing = true;
-  // --- MODIFICATION: The app is now considered "unlocked" until it's paused. ---
-  bool _isLocked = false; 
+  bool _isLocked = true; 
 
   @override
   void initState() {
@@ -50,20 +49,32 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   }
   
   Future<void> _initializeApplication() async {
+    // FIX: Guard against async gaps and ensure widget is mounted.
+    if (!mounted) return;
+
+    // Capture providers before the async gap.
+    final settingsProvider = context.read<SettingsProvider>();
     final appProvider = context.read<AppProvider>();
+    
     await appProvider.init(); 
     
+    // After the async gap, ensure the widget is still mounted before continuing.
     if (mounted) {
       setState(() {
         _isInitializing = false;
       });
+
+      if (!widget.isFirstLaunch) {
+          _checkPinAndLock();
+      } else {
+          setState(() {
+              _isLocked = false;
+          });
+      }
+
+      // Safely use the captured provider instance.
+      settingsProvider.checkAndPerformAutoBackup();
     }
-
-    // --- MODIFICATION: Trigger the lock screen check on initial launch ---
-    // This ensures the lock screen appears when the app is first opened.
-    _checkPinAndLock();
-
-    context.read<SettingsProvider>().checkAndPerformAutoBackup();
   }
 
 
@@ -76,7 +87,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
-    // --- MODIFICATION: Set the locked flag when the app is paused (goes to background). ---
     if (state == AppLifecycleState.paused) {
       if (mounted) {
         setState(() {
@@ -84,7 +94,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         });
       }
     }
-    // --- MODIFICATION: Only show the lock screen on resume IF it was previously locked. ---
     if (state == AppLifecycleState.resumed && _isLocked) {
       _checkPinAndLock();
     }
@@ -97,18 +106,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     final pinExists = await settingsRepo.getPin() != null;
 
     if (pinExists && mounted) {
-      Navigator.of(context).pushNamed(
-        AppRouter.pinLockPage,
-        arguments: PinLockPageArgs(
-          mode: PinLockMode.enter,
-          onPinCorrect: () {
-            if (mounted) {
-              // Once unlocked, set the state to unlocked.
-              setState(() {
-                _isLocked = false;
-              });
-            }
-          },
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PinLockPage(
+            mode: PinLockMode.enter,
+            onPinCorrect: () {
+              Navigator.of(context).pop();
+              if (mounted) {
+                setState(() {
+                  _isLocked = false;
+                });
+              }
+            },
+          ),
         ),
       );
     } else {

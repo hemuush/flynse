@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flynse/core/data/repositories/settings_repository.dart';
 import 'package:flynse/core/providers/settings_provider.dart';
+import 'package:flynse/ui/home_page.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Defines the operation mode for the PIN lock screen.
 enum PinLockMode { create, enter }
@@ -90,24 +92,32 @@ class _PinLockPageState extends State<PinLockPage>
   }
 
   Future<void> _initializeSecurityCheck() async {
-    bool canCheckBiometrics;
-    try {
-      canCheckBiometrics = await _localAuth.canCheckBiometrics && await _localAuth.isDeviceSupported();
-    } on PlatformException {
-      canCheckBiometrics = false;
-    }
-
-    final useBiometricsSetting = await _settingsRepo.getSetting('use_biometric') == 'true';
+    // FIX: Check for biometrics availability and user setting correctly.
+    final prefs = await SharedPreferences.getInstance();
+    final useBiometricsSetting = prefs.getBool('use_biometric') ?? false;
     
-    if(mounted) {
-      setState(() {
-        _biometricsEnabled = canCheckBiometrics && useBiometricsSetting;
-      });
+    if (useBiometricsSetting && widget.mode == PinLockMode.enter) {
+      bool canCheckBiometrics;
+      try {
+        canCheckBiometrics = await _localAuth.canCheckBiometrics && await _localAuth.isDeviceSupported();
+      } on PlatformException {
+        canCheckBiometrics = false;
+      }
+      
+      if(mounted) {
+        setState(() {
+          _biometricsEnabled = canCheckBiometrics;
+        });
+        // If enabled, immediately try to authenticate.
+        if (_biometricsEnabled) {
+          _authenticateWithBiometrics();
+        }
+      }
     }
   }
 
   Future<void> _authenticateWithBiometrics() async {
-    if (_isAuthenticating || !_biometricsEnabled) return;
+    if (_isAuthenticating) return;
     
     if (mounted) {
       setState(() {
@@ -147,10 +157,16 @@ class _PinLockPageState extends State<PinLockPage>
 
   void _onSuccessfulAuthentication() {
     HapticFeedback.heavyImpact();
-    widget.onPinCorrect?.call();
-    
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    // FIX: The onPinCorrect callback is now responsible for navigation.
+    // This makes the PinLockPage more reusable.
+    if (widget.onPinCorrect != null) {
+      widget.onPinCorrect!();
+    } else {
+      // Default behavior if no callback is provided: go to home page.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const MyHomePage()),
+        (route) => false,
+      );
     }
   }
 
@@ -213,6 +229,7 @@ class _PinLockPageState extends State<PinLockPage>
       } else {
         if (pin == _firstPin) {
           await _settingsRepo.savePin(pin);
+          // The onPinCreated callback handles what happens next.
           widget.onPinCreated?.call();
         } else {
           setState(() {
@@ -242,7 +259,7 @@ class _PinLockPageState extends State<PinLockPage>
     if (widget.mode == PinLockMode.create) {
       return _isConfirming ? 'Confirm your PIN' : 'Create a new PIN';
     }
-    return 'Welcome back, $userName!';
+    return widget.title ?? 'Welcome back, $userName!';
   }
 
   @override
@@ -357,6 +374,8 @@ class _PinLockPageState extends State<PinLockPage>
       itemBuilder: (context, index) {
         final key = keys[index];
         if (key == 'biometric') {
+          // FIX: Show the biometric button if the device supports it, even if the user
+          // hasn't explicitly enabled it in settings yet (they will be prompted).
           return _biometricsEnabled && widget.mode == PinLockMode.enter
             ? _buildNumpadButton(
                 '',

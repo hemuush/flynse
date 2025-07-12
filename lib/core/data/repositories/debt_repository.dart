@@ -17,11 +17,11 @@ class DebtRepository {
 
   Future<void> applyAnnualInterest() async {
     final db = await _database;
-    // This logic correctly targets only non-term, interest-bearing personal debts.
+    // MODIFICATION: This query no longer needs to check for friend_id.
     final activeLoans = await db.query(
       'debts',
       where:
-          'is_closed = 0 AND is_user_debtor = 1 AND interest_rate > 0 AND (loan_term_years IS NULL OR loan_term_years = 0) AND friend_id IS NULL',
+          'is_closed = 0 AND interest_rate > 0 AND (loan_term_years IS NULL OR loan_term_years = 0)',
     );
 
     final now = DateTime.now();
@@ -29,20 +29,24 @@ class DebtRepository {
     for (var loan in activeLoans) {
       final creationDate = DateTime.parse(loan['creation_date'] as String);
       final principal = loan['principal_amount'] as double;
-      final interestRate = (loan['interest_rate'] as double? ?? 0) / 100.0;
-      final updatesApplied = loan['interest_updates_applied'] as int;
+      final annualInterestRate = (loan['interest_rate'] as double? ?? 0) / 100.0;
 
-      if (interestRate <= 0) continue;
+      if (annualInterestRate <= 0) continue;
 
-      final yearsPassed = now.difference(creationDate).inDays ~/ 365;
+      int yearsPassed = now.year - creationDate.year;
+      if (now.month < creationDate.month ||
+          (now.month == creationDate.month && now.day < creationDate.day)) {
+        yearsPassed--;
+      }
+      yearsPassed = yearsPassed < 0 ? 0 : yearsPassed;
 
-      if (yearsPassed > updatesApplied) {
-        final updatesToApply = yearsPassed - updatesApplied;
-        final interestToAdd = (principal * interestRate * updatesToApply).roundToDouble();
+      double newTotalAmount = principal;
+      for (int i = 0; i < yearsPassed; i++) {
+        newTotalAmount *= (1 + annualInterestRate);
+      }
+      newTotalAmount = newTotalAmount.roundToDouble();
 
-        final newTotalAmount =
-            (loan['total_amount'] as double) + interestToAdd;
-
+      if ((newTotalAmount - (loan['total_amount'] as double)).abs() > 0.01) {
         await db.update(
           'debts',
           {
@@ -104,6 +108,7 @@ class DebtRepository {
       final int? initialTermMonths =
           termInYears != null ? termInYears * 12 : null;
 
+      // MODIFICATION: No longer inserts friend_id or is_user_debtor
       final debtId = await txn.insert('debts', {
         'name': debtData['name'],
         'principal_amount': principal,
@@ -111,8 +116,6 @@ class DebtRepository {
         'interest_rate': interestRate,
         'loan_term_years': termInYears,
         'creation_date': loanStartDateStr,
-        'is_user_debtor': 1, // Always a user debt
-        'friend_id': null, // Explicitly null for personal debts
         'is_emi_purchase': isEmiPurchase ? 1 : 0,
         'purchase_description': purchaseDescription,
         'current_emi': initialEmi > 0 ? initialEmi : null,
@@ -128,7 +131,7 @@ class DebtRepository {
           'type': 'Expense',
           'category': 'Shopping',
           'transaction_date': transactionDate,
-          'debt_id': debtId
+          'personal_debt_id': debtId // MODIFICATION: Use new column
         });
       }
 
@@ -138,7 +141,7 @@ class DebtRepository {
         'type': 'Income',
         'category': 'Loan',
         'transaction_date': transactionDate,
-        'debt_id': debtId
+        'personal_debt_id': debtId // MODIFICATION: Use new column
       });
       return debtId;
     });
@@ -156,7 +159,7 @@ class DebtRepository {
         'type': 'Expense',
         'category': 'Debt Repayment',
         'transaction_date': date.toIso8601String(),
-        'debt_id': debtId,
+        'personal_debt_id': debtId, // MODIFICATION: Use new column
         'prepayment_option': prepaymentOption,
       });
 
@@ -244,12 +247,13 @@ class DebtRepository {
     });
   }
 
-  /// Fetches personal debts (where friend_id is NULL).
+  /// Fetches personal debts.
   Future<List<Map<String, dynamic>>> getDebts({bool isClosed = false}) async {
     final db = await _database;
+    // MODIFICATION: Simplified query, no longer needs to check for friend_id or is_user_debtor
     return db.query(
       'debts',
-      where: 'is_user_debtor = 1 AND is_closed = ? AND friend_id IS NULL',
+      where: 'is_closed = ?',
       whereArgs: [isClosed ? 1 : 0],
       orderBy: '(total_amount - amount_paid) DESC',
     );
@@ -321,7 +325,7 @@ class DebtRepository {
             'type': 'Expense',
             'category': 'Debt Repayment',
             'transaction_date': date.toIso8601String(),
-            'debt_id': debtId
+            'personal_debt_id': debtId // MODIFICATION: Use new column
           });
         }
 
@@ -341,8 +345,8 @@ class DebtRepository {
   Future<void> deleteDebtAndTransactions(int debtId) async {
     final db = await _database;
     await db.transaction((txn) async {
-      await txn
-          .delete('transactions', where: 'debt_id = ?', whereArgs: [debtId]);
+      // MODIFICATION: Use new column
+      await txn.delete('transactions', where: 'personal_debt_id = ?', whereArgs: [debtId]);
       await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]);
     });
   }
@@ -351,8 +355,9 @@ class DebtRepository {
   Future<List<Map<String, dynamic>>> getRepaymentHistory(int debtId,
       {Transaction? txn}) async {
     final db = txn ?? await _database;
+    // MODIFICATION: Use new column
     return db.query('transactions',
-        where: 'debt_id = ? AND category = ?',
+        where: 'personal_debt_id = ? AND category = ?',
         whereArgs: [debtId, 'Debt Repayment'],
         orderBy: 'transaction_date ASC, id ASC');
   }
@@ -360,8 +365,9 @@ class DebtRepository {
   /// Calculates total pending PERSONAL debt.
   Future<double> getTotalPendingDebt() async {
     final db = await _database;
+    // MODIFICATION: Simplified query
     final result = await db.rawQuery(
-        "SELECT SUM(total_amount - amount_paid) as total FROM debts WHERE is_closed = 0 AND is_user_debtor = 1 AND friend_id IS NULL");
+        "SELECT SUM(total_amount - amount_paid) as total FROM debts WHERE is_closed = 0");
     if (result.isNotEmpty && result.first['total'] != null) {
       return (result.first['total'] as num).toDouble();
     }

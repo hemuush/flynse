@@ -91,11 +91,15 @@ class _OnboardingPageState extends State<OnboardingPage>
 
     if (!navigator.mounted) return;
 
-    navigator.pushAndRemoveUntil(
+    // FIX: Navigate to the PIN creation page, and from its callback, navigate
+    // to the home page, replacing the entire stack.
+    navigator.push(
       MaterialPageRoute(
         builder: (context) => PinLockPage(
           mode: PinLockMode.create,
           onPinCreated: () {
+            // This callback ensures that after the PIN is created, we go to the
+            // home page and remove all previous routes (onboarding, pin lock).
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
                   builder: (context) => const MyHomePage(isFirstLaunch: true)),
@@ -104,7 +108,6 @@ class _OnboardingPageState extends State<OnboardingPage>
           },
         ),
       ),
-      (route) => false,
     );
   }
 
@@ -136,6 +139,8 @@ class _OnboardingPageState extends State<OnboardingPage>
 
       if (!navigator.mounted) return;
 
+      // FIX: The logic here is now more robust. After restoring, it checks if a PIN
+      // existed in the backup. If so, it prompts the user to enter it.
       if (pin != null) {
         navigator.pushAndRemoveUntil(
           MaterialPageRoute(
@@ -143,6 +148,7 @@ class _OnboardingPageState extends State<OnboardingPage>
           (route) => false,
         );
       } else {
+        // If no PIN was in the backup, go straight to the home page.
         navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const MyHomePage()),
           (route) => false,
